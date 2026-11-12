@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Housie – Multiplayer</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --border: #2e3148;
+    --accent: #6c63ff;
+    --accent2: #ff6584;
+    --green: #2ecc71;
+    --yellow: #f1c40f;
+    --text: #e8e8f0;
+    --muted: #8888aa;
+    --marked: #6c63ff;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px 16px 60px;
+  }
+
+  h1 {
+    font-size: 2rem;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 4px;
+  }
+
+  .subtitle { color: var(--muted); font-size: 0.88rem; margin-bottom: 24px; }
+
+  .screen { width: 100%; max-width: 560px; display: none; flex-direction: column; gap: 14px; }
+  .screen.active { display: flex; }
+
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px;
+  }
+
+  h2 { font-size: 1.05rem; color: var(--accent); margin-bottom: 12px; }
+
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 11px 20px; border-radius: 10px; border: none; cursor: pointer;
+    font-size: 0.93rem; font-weight: 600; transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0); }
+  .btn-primary   { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--border); color: var(--text); }
+  .btn-danger    { background: var(--accent2); color: #fff; }
+  .btn-green     { background: var(--green); color: #fff; }
+  .btn-block     { width: 100%; }
+
+  input[type="text"] {
+    width: 100%; padding: 11px 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: #12141f;
+    color: var(--text); font-size: 1rem; outline: none; transition: border 0.2s;
+  }
+  input:focus { border-color: var(--accent); }
+
+  .input-row { display: flex; gap: 10px; }
+  .input-row input { flex: 1; }
+
+  /* ── room code ── */
+  .room-code {
+    font-size: 2.6rem; font-weight: 800; letter-spacing: 12px;
+    color: var(--accent); text-align: center; padding: 12px 0;
+    background: #12141f; border-radius: 12px;
+  }
+
+  /* ── ticket 3×9 ── */
+  .ticket-header {
+    display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px;
+    margin-bottom: 2px;
+  }
+  .ticket-col-label {
+    text-align: center; font-size: 0.65rem; font-weight: 700;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 1px;
+  }
+  .ticket {
+    display: grid; grid-template-columns: repeat(9, 1fr); gap: 4px;
+  }
+  .ticket-cell {
+    aspect-ratio: 1; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.82rem;
+    background: #12141f; border: 1px solid var(--border);
+    cursor: default; transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    user-select: none; position: relative;
+  }
+  .ticket-cell.blank { background: transparent; border-color: transparent; }
+  .ticket-cell.has-number { cursor: pointer; }
+  .ticket-cell.has-number:hover { border-color: var(--accent); transform: scale(1.08); z-index: 1; }
+  .ticket-cell.marked {
+    background: var(--marked); border-color: var(--marked); color: #fff;
+    box-shadow: 0 0 10px rgba(108,99,255,0.5);
+    animation: markPop 0.25s ease;
+  }
+  /* called-not-marked intentionally removed — players figure it out themselves */
+
+  /* ── pending claim cards (host) ── */
+  .pending-claim {
+    background: #12141f; border: 1px solid var(--border); border-radius: 12px;
+    padding: 14px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 10px;
+  }
+  .pending-claim.flash { animation: claimFlash 0.5s ease; }
+  @keyframes claimFlash {
+    0%,100% { border-color: var(--border); }
+    50%     { border-color: var(--accent2); box-shadow: 0 0 12px rgba(255,101,132,0.4); }
+  }
+  .pending-claim-header { display: flex; justify-content: space-between; align-items: center; }
+  .pending-claim-name   { font-weight: 700; font-size: 0.95rem; }
+  .pending-claim-type   { font-size: 0.78rem; color: var(--accent); font-weight: 600;
+                          background: #1e2240; padding: 2px 10px; border-radius: 20px; }
+  .pending-mini-ticket  { display: grid; grid-template-columns: repeat(9, 1fr); gap: 3px; }
+  .pmt-cell {
+    aspect-ratio: 1; border-radius: 5px; display: flex; align-items: center; justify-content: center;
+    font-size: 0.65rem; font-weight: 700; background: #1e2240; border: 1px solid #2e3148; color: var(--muted);
+  }
+  .pmt-cell.blank  { background: transparent; border-color: transparent; }
+  .pmt-cell.called { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .pmt-cell.win-row-preview { border: 2px solid var(--yellow); color: var(--yellow); }
+  .pmt-cell.win-row-preview.called { background: var(--yellow); border-color: var(--yellow); color: #000; }
+  .pending-actions { display: flex; gap: 8px; }
+  .pending-actions .btn { flex: 1; padding: 8px; font-size: 0.82rem; }
+
+  /* ── claim pending state (player) ── */
+  .btn.pending { opacity: 0.6; cursor: wait; position: relative; }
+  .btn.pending::after { content: ' ⏳'; }
+
+  @keyframes markPop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.2); }
+    100% { transform: scale(1); }
+  }
+
+  /* row highlight on win */
+  .ticket-cell.win-row {
+    background: linear-gradient(135deg, #f1c40f, #e67e22);
+    border-color: #f1c40f; color: #000;
+    animation: winGlow 1s ease infinite alternate;
+  }
+  @keyframes winGlow {
+    from { box-shadow: 0 0 6px #f1c40f88; }
+    to   { box-shadow: 0 0 18px #f1c40fcc; }
+  }
+
+  /* ── board 1-75 ── */
+  .board {
+    display: grid; grid-template-columns: repeat(15, 1fr); gap: 4px;
+  }
+  .board-num {
+    aspect-ratio: 1; border-radius: 6px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 600;
+    background: #12141f; border: 1px solid var(--border); color: var(--muted);
+    transition: background 0.3s;
+  }
+  .board-num.called   { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .board-num.last-called {
+    background: var(--yellow); border-color: var(--yellow); color: #000;
+    animation: pop 0.35s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(1); }
+    50%  { transform: scale(1.4); }
+    100% { transform: scale(1); }
+  }
+
+  /* ── big number ── */
+  .big-number {
+    font-size: 5rem; font-weight: 800; text-align: center;
+    color: var(--yellow); line-height: 1; min-height: 88px;
+    text-shadow: 0 0 30px rgba(241,196,15,0.4);
+  }
+  .big-number-label { text-align: center; color: var(--muted); font-size: 0.82rem; margin-top: 4px; }
+
+  /* ── claim buttons ── */
+  .claims { display: flex; flex-wrap: wrap; gap: 8px; }
+  .claims .btn { flex: 1; min-width: 120px; font-size: 0.8rem; padding: 10px; }
+  .claims .btn.claimed { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── players ── */
+  .players-list { display: flex; flex-direction: column; gap: 8px; }
+  .player-row {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 12px; background: #12141f; border-radius: 10px; font-size: 0.88rem;
+  }
+  .player-row .wins { color: var(--green); font-size: 0.78rem; }
+
+  /* ── log ── */
+  .log {
+    max-height: 110px; overflow-y: auto;
+    font-size: 0.78rem; color: var(--muted);
+    display: flex; flex-direction: column; gap: 3px;
+  }
+  .log span { padding: 3px 0; border-bottom: 1px solid #1e2030; }
+
+  /* ── win banner ── */
+  .win-banner {
+    display: none; position: fixed; inset: 0; z-index: 100;
+    background: rgba(5,5,15,0.92);
+    align-items: center; justify-content: center;
+    flex-direction: column; gap: 0; padding: 20px;
+  }
+  .win-banner.show { display: flex; }
+
+  .confetti-container {
+    position: fixed; inset: 0; pointer-events: none; z-index: 99; overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute; width: 10px; height: 10px; border-radius: 2px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0%   { transform: translateY(-20px) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+
+  /* ── SCRATCH CARD ── */
+  .scratch-wrapper {
+    position: relative; border-radius: 20px; overflow: hidden;
+    width: min(340px, 90vw);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    animation: cardEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  }
+  @keyframes cardEntrance {
+    from { transform: scale(0.5) translateY(60px); opacity: 0; }
+    to   { transform: scale(1) translateY(0);      opacity: 1; }
+  }
+
+  .scratch-reveal {
+    padding: 36px 28px 28px;
+    display: flex; flex-direction: column; align-items: center; gap: 12px;
+    text-align: center; min-height: 220px; justify-content: center;
+  }
+
+  .scratch-win-label {
+    font-size: 0.75rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
+    opacity: 0.8;
+  }
+  .scratch-emoji { font-size: 3rem; line-height: 1; }
+  .scratch-quote {
+    font-size: 1.05rem; font-weight: 600; line-height: 1.5;
+    max-width: 280px;
+  }
+  .scratch-author { font-size: 0.78rem; opacity: 0.65; margin-top: -4px; }
+
+  .scratch-canvas {
+    position: absolute; inset: 0; cursor: crosshair;
+    touch-action: none;
+  }
+
+  .scratch-hint {
+    color: var(--muted); font-size: 0.8rem; margin-top: 10px;
+    animation: pulse 1.5s ease infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+
+  .scratch-actions { display: flex; gap: 10px; margin-top: 16px; }
+
+  /* ── toast ── */
+  #toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #2e3148; color: var(--text); padding: 10px 22px;
+    border-radius: 20px; font-size: 0.88rem; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; white-space: nowrap; z-index: 300;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ── number callout ── */
+  .callout-flash {
+    position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 50;
+  }
+  .callout-num {
+    font-size: 8rem; font-weight: 900; color: var(--yellow);
+    text-shadow: 0 0 60px rgba(241,196,15,0.7);
+    opacity: 0; transform: scale(0.5);
+    transition: none;
+  }
+  .callout-num.show {
+    animation: calloutAnim 1.2s ease forwards;
+  }
+  @keyframes calloutAnim {
+    0%   { opacity: 0; transform: scale(0.4); }
+    30%  { opacity: 1; transform: scale(1.1); }
+    70%  { opacity: 1; transform: scale(1); }
+    100% { opacity: 0; transform: scale(1.3); }
+  }
+
+  .badge {
+    display: inline-block; padding: 2px 10px; border-radius: 20px;
+    font-size: 0.72rem; font-weight: 600;
+  }
+  .badge-host   { background: var(--accent); color: #fff; }
+  .badge-player { background: var(--border); color: var(--muted); }
+
+  @media(max-width: 420px) {
+    .board { grid-template-columns: repeat(13, 1fr); }
+    .ticket-cell { font-size: 0.72rem; }
+    .big-number { font-size: 3.8rem; }
+  }
+</style>
+</head>
+<body>
+
+<h1>🎱 Housie</h1>
+<p class="subtitle">Multiplayer Tambola — connect via room code</p>
+
+<!-- ══════════════ LOBBY ══════════════ -->
+<div id="screen-lobby" class="screen active">
+  <div class="card">
+    <h2>Your Name</h2>
+    <input id="player-name" type="text" placeholder="Enter your name" maxlength="20" />
+  </div>
+  <div class="card">
+    <h2>🏠 Host a Game</h2>
+    <p style="color:var(--muted);font-size:.85rem;margin-bottom:14px;">Create a room and share the code with friends in other tabs.</p>
+    <button class="btn btn-primary btn-block" onclick="hostGame()">Create Room</button>
+  </div>
+  <div class="card">
+    <h2>🔗 Join a Game</h2>
+    <div class="input-row">
+      <input id="join-code" type="text" placeholder="6-digit room code" maxlength="6" />
+      <button class="btn btn-primary" onclick="joinGame()">Join</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ HOST ══════════════ -->
+<div id="screen-host" class="screen">
+  <div class="card">
+    <h2>Room Code</h2>
+    <div class="room-code" id="host-room-code">------</div>
+    <p style="color:var(--muted);font-size:.8rem;text-align:center;margin-top:8px;" id="share-hint">Share this code with players on any device on the same network</p>
+  </div>
+
+  <div class="card">
+    <div class="big-number" id="host-last-num">–</div>
+    <div class="big-number-label">Last Called</div>
+    <div style="display:flex;gap:10px;margin-top:16px;">
+      <button class="btn btn-primary btn-block" onclick="callNumber()">Call Next Number</button>
+      <button class="btn btn-secondary" onclick="toggleAutoCall()" id="btn-auto" title="Auto-call every 5s">⏱</button>
+    </div>
+    <div style="text-align:center;margin-top:8px;color:var(--muted);font-size:.78rem;" id="remaining-count"></div>
+  </div>
+
+  <div class="card">
+    <h2>Called Numbers</h2>
+    <div class="board" id="host-board"></div>
+  </div>
+
+  <div class="card">
+    <h2>Players <span id="player-count" style="color:var(--muted);font-weight:400;"></span></h2>
+    <div class="players-list" id="players-list"></div>
+  </div>
+
+  <div class="card">
+    <h2>Claim Requests <span id="pending-badge" style="display:none;background:var(--accent2);color:#fff;border-radius:20px;padding:1px 9px;font-size:0.75rem;font-weight:700;margin-left:6px;">0</span></h2>
+    <div id="pending-claims-list"><p style="color:var(--muted);font-size:.82rem;" id="no-claims-msg">No pending claims</p></div>
+  </div>
+
+  <div class="card">
+    <h2>Resolved Claims</h2>
+    <div class="log" id="claims-log"><span>None yet</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Log</h2>
+    <div class="log" id="host-log"></div>
+  </div>
+
+  <button class="btn btn-danger btn-block" onclick="endGame()">End Game</button>
+</div>
+
+<!-- ══════════════ PLAYER ══════════════ -->
+<div id="screen-player" class="screen">
+  <div class="card" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+    <div>
+      <h2 id="player-room-label">Room: ------</h2>
+      <p style="color:var(--muted);font-size:.82rem;">Waiting for host to start...</p>
+    </div>
+    <span class="badge badge-player">Player</span>
+  </div>
+
+  <div class="card" id="waiting-card">
+    <p style="color:var(--muted);text-align:center;padding:20px 0;">⏳ Waiting for the host to call the first number...</p>
+  </div>
+
+  <div class="card" id="game-card" style="display:none;">
+    <div class="big-number" id="player-last-num">–</div>
+    <div class="big-number-label">Last Called</div>
+  </div>
+
+  <div class="card" id="board-card" style="display:none;">
+    <h2>Called Numbers</h2>
+    <div class="board" id="player-board"></div>
+  </div>
+
+  <div class="card" id="ticket-card" style="display:none;">
+    <h2>Your Ticket</h2>
+    <div class="ticket-header" id="ticket-col-headers"></div>
+    <div class="ticket" id="player-ticket"></div>
+    <p style="color:var(--muted);font-size:.78rem;margin-top:8px;">Tap to tick/untick • Pink border = called but not ticked</p>
+  </div>
+
+  <div class="card" id="claims-card" style="display:none;">
+    <h2>Claim a Win</h2>
+    <div class="claims">
+      <button class="btn btn-secondary" id="claim-top"    onclick="claimWin('top')">🔝 Top Line</button>
+      <button class="btn btn-secondary" id="claim-middle" onclick="claimWin('middle')">➖ Middle Line</button>
+      <button class="btn btn-secondary" id="claim-bottom" onclick="claimWin('bottom')">⬇️ Bottom Line</button>
+      <button class="btn btn-green"     id="claim-full"   onclick="claimWin('full')">🏆 Full House</button>
+    </div>
+  </div>
+
+  <div class="card" id="player-log-card" style="display:none;">
+    <h2>Log</h2>
+    <div class="log" id="player-log"></div>
+  </div>
+</div>
+
+<!-- ══════════════ WIN BANNER + SCRATCH CARD ══════════════ -->
+<div class="win-banner" id="win-banner">
+  <div style="text-align:center;margin-bottom:16px;">
+    <div style="font-size:1.6rem;font-weight:700;color:var(--yellow);" id="win-title">🎉 Winner!</div>
+    <div style="color:var(--muted);font-size:.88rem;margin-top:4px;" id="win-msg"></div>
+  </div>
+
+  <!-- Scratch Card -->
+  <div class="scratch-wrapper" id="scratch-wrapper">
+    <!-- Revealed layer (behind canvas) -->
+    <div class="scratch-reveal" id="scratch-reveal">
+      <div class="scratch-win-label" id="scratch-win-label">Top Line</div>
+      <div class="scratch-emoji"     id="scratch-emoji">🌟</div>
+      <div class="scratch-quote"     id="scratch-quote">"Loading..."</div>
+      <div class="scratch-author"    id="scratch-author">– Someone</div>
+    </div>
+    <!-- Scratch overlay canvas -->
+    <canvas class="scratch-canvas" id="scratch-canvas"></canvas>
+  </div>
+
+  <p class="scratch-hint" id="scratch-hint">✨ Scratch to reveal your prize quote!</p>
+
+  <div class="scratch-actions">
+    <button class="btn btn-secondary" onclick="revealAll()">Reveal All</button>
+    <button class="btn btn-primary"   onclick="dismissWin()">Continue</button>
+  </div>
+</div>
+
+<!-- Confetti container -->
+<div class="confetti-container" id="confetti-container"></div>
+
+<!-- Number callout flash -->
+<div class="callout-flash" id="callout-flash">
+  <div class="callout-num" id="callout-num"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  QUOTES
+// ══════════════════════════════════════════
+const QUOTES = {
+  top: [
+    { q: "The secret of getting ahead is getting started.", a: "Mark Twain", e: "🚀" },
+    { q: "Top of the world, and you've only just begun!", a: "Anonymous", e: "🌟" },
+    { q: "Every expert was once a beginner.", a: "Helen Hayes", e: "🎯" },
+    { q: "Start where you are. Use what you have. Do what you can.", a: "Arthur Ashe", e: "✨" },
+    { q: "One step at a time. You nailed the first.", a: "Anonymous", e: "👟" },
+    { q: "The first row is always the hardest. Congrats!", a: "Anonymous", e: "🎊" },
+  ],
+  middle: [
+    { q: "You're in the middle of something great!", a: "Anonymous", e: "🌈" },
+    { q: "Keep going. Everything you need will come to you.", a: "Anonymous", e: "🔥" },
+    { q: "Halfway there means you haven't given up.", a: "Anonymous", e: "💪" },
+    { q: "The middle of every successful project looks like a disaster.", a: "Rosabeth Moss Kanter", e: "⚡" },
+    { q: "You're not stuck, you're just mid-flight.", a: "Anonymous", e: "✈️" },
+    { q: "Success is a journey, not a destination.", a: "Arthur Ashe", e: "🗺️" },
+  ],
+  bottom: [
+    { q: "Finish what you start. You just did!", a: "Anonymous", e: "🏁" },
+    { q: "It always seems impossible until it's done.", a: "Nelson Mandela", e: "🦁" },
+    { q: "Bottom line: you're a winner.", a: "Anonymous", e: "🎖️" },
+    { q: "The last row hit different.", a: "Anonymous", e: "😎" },
+    { q: "Endings are just beginnings in disguise.", a: "Anonymous", e: "🌅" },
+    { q: "Strong finish, stronger spirit.", a: "Anonymous", e: "💥" },
+  ],
+  full: [
+    { q: "The harder you work for something, the greater you'll feel when you achieve it.", a: "Anonymous", e: "🏆" },
+    { q: "You didn't come this far to only come this far.", a: "Anonymous", e: "👑" },
+    { q: "FULL HOUSE. The whole board bows before you.", a: "Anonymous", e: "🎰" },
+    { q: "Champions aren't made in gyms. They're made from something inside.", a: "Muhammad Ali", e: "🥊" },
+    { q: "Luck? The more I practice, the luckier I get.", a: "Arnold Palmer", e: "🌠" },
+    { q: "You played the whole card. Legend.", a: "Anonymous", e: "🌋" },
+  ],
+};
+
+const WIN_THEMES = {
+  top:    { bg: 'linear-gradient(135deg,#1a1a2e,#16213e)', accent: '#6c63ff', label: 'Top Line 🔝' },
+  middle: { bg: 'linear-gradient(135deg,#0d2137,#1a3a5c)', accent: '#00d2ff', label: 'Middle Line ➖' },
+  bottom: { bg: 'linear-gradient(135deg,#1f0533,#3d1162)', accent: '#ff6584', label: 'Bottom Line ⬇️' },
+  full:   { bg: 'linear-gradient(135deg,#1a0a00,#4d2800)', accent: '#f1c40f', label: 'Full House 🏆' },
+};
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let role        = null;
+let roomCode    = null;
+let myName      = '';
+let myId        = null;
+let ticket      = [];
+let markedCells = new Set();
+let claimedWins = new Set();
+let ws          = null;
+let autoTimer   = null;
+let gameStarted = false;
+let gameState   = null;
+
+// ══════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════
+function uid()     { return Math.random().toString(36).slice(2,10); }
+function genCode() { return String(Math.floor(100000 + Math.random() * 900000)); }
+
+function toast(msg, dur=2500) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), dur);
+}
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ══════════════════════════════════════════
+//  TICKET GENERATION
+// ══════════════════════════════════════════
+function generateTicket() {
+  const ranges = [[1,9],[10,19],[20,29],[30,39],[40,49],[50,59],[60,69],[70,79],[80,90]];
+  const cols = ranges.map(([lo,hi]) => {
+    const p=[]; for(let n=lo;n<=hi;n++) p.push(n);
+    for(let i=p.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [p[i],p[j]]=[p[j],p[i]]; }
+    return p;
+  });
+  const grid = Array.from({length:3}, ()=>Array(9).fill(null));
+  function choose5of9() {
+    const idx=[0,1,2,3,4,5,6,7,8];
+    for(let i=8;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [idx[i],idx[j]]=[idx[j],idx[i]]; }
+    return new Set(idx.slice(0,5));
+  }
+  let rowMasks, tries=0;
+  do {
+    rowMasks=[choose5of9(),choose5of9(),choose5of9()];
+    const cc=Array(9).fill(0);
+    for(let r=0;r<3;r++) rowMasks[r].forEach(c=>cc[c]++);
+    if(cc.every(c=>c>=1)) break;
+  } while(++tries<500);
+  for(let r=0;r<3;r++) rowMasks[r].forEach(c=>{ grid[r][c]=cols[c].pop(); });
+  for(let c=0;c<9;c++){
+    const vals=[]; for(let r=0;r<3;r++) if(grid[r][c]!==null) vals.push({r,val:grid[r][c]});
+    vals.sort((a,b)=>a.val-b.val);
+    const filled=[]; for(let r=0;r<3;r++) if(grid[r][c]!==null) filled.push(r);
+    filled.sort((a,b)=>a-b);
+    vals.forEach((v,i)=>{ grid[filled[i]][c]=v.val; });
+  }
+  return grid;
+}
+
+// ══════════════════════════════════════════
+//  WEBSOCKET
+// ══════════════════════════════════════════
+function connectWS(onOpen) {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+  ws.onopen = onOpen;
+  ws.onmessage = e => {
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+    role === 'host' ? handleHostMessage(msg) : handlePlayerMessage(msg);
+  };
+  ws.onclose = () => toast('Connection lost. Reload to reconnect.', 5000);
+  ws.onerror = () => toast('WebSocket error.', 4000);
+}
+function send(msg) {
+  if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+}
+
+// ══════════════════════════════════════════
+//  HOST
+// ══════════════════════════════════════════
+function hostGame() {
+  myName = document.getElementById('player-name').value.trim() || 'Host';
+  myId = uid(); roomCode = genCode();
+  const numbers = Array.from({length:90},(_,i)=>i+1);
+  for(let i=89;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [numbers[i],numbers[j]]=[numbers[j],numbers[i]]; }
+  gameState = { room:roomCode, host:{id:myId,name:myName},
+    players:{}, calledNumbers:[], remaining:numbers, wins:[], started:false, ended:false };
+  role='host';
+  connectWS(()=>{ send({ type:'create_room', code:roomCode, state:gameState }); });
+  showScreen('screen-host');
+  document.getElementById('host-room-code').textContent = roomCode;
+  renderHostBoard([]); renderPlayersList({}); updateRemaining(90);
+}
+
+function handleHostMessage(msg) {
+  if(msg.type==='room_created'){
+    document.getElementById('share-hint').textContent =
+      `Players open  ${location.href}  on any device on this Wi-Fi, then enter code ${roomCode}`;
+    return;
+  }
+  if(msg.type==='join'){
+    gameState.players[msg.playerId]={name:msg.name,wins:[]};
+    send({ type:'state_update', room:roomCode, state:gameState });
+    addHostLog(`${msg.name} joined`);
+    renderPlayersList(gameState.players);
+    return;
+  }
+  if(msg.type==='claim'){
+    const player=gameState.players[msg.playerId];
+    if(!player) return;
+    // Ignore if already won this type or already has a pending claim for it
+    if(gameState.wins.some(w=>w.type===msg.claimType)) return;
+    if(pendingClaims.some(p=>p.playerId===msg.playerId&&p.claimType===msg.claimType)) return;
+    const valid = validateClaim(msg.ticket, msg.claimType, gameState.calledNumbers);
+    addPendingClaim({ playerId:msg.playerId, name:player.name,
+      claimType:msg.claimType, ticket:msg.ticket, valid });
+    return;
+  }
+}
+
+// ══════════════════════════════════════════
+//  PENDING CLAIMS (host)
+// ══════════════════════════════════════════
+let pendingClaims = [];  // { playerId, name, claimType, ticket, valid }
+
+function addPendingClaim(claim) {
+  pendingClaims.push(claim);
+  renderPendingClaims();
+  // Notify player their claim is being reviewed
+  send({ type:'claim_pending', room:roomCode, playerId:claim.playerId, claimType:claim.claimType });
+  addHostLog(`📋 ${claim.name} claims ${claimLabel(claim.claimType)}`);
+}
+
+function renderPendingClaims() {
+  const list    = document.getElementById('pending-claims-list');
+  const badge   = document.getElementById('pending-badge');
+  const noMsg   = document.getElementById('no-claims-msg');
+
+  if (pendingClaims.length === 0) {
+    badge.style.display = 'none';
+    list.innerHTML = '<p style="color:var(--muted);font-size:.82rem;" id="no-claims-msg">No pending claims</p>';
+    return;
+  }
+
+  badge.style.display = 'inline';
+  badge.textContent   = pendingClaims.length;
+  list.innerHTML      = '';
+
+  pendingClaims.forEach((claim, idx) => {
+    const card = document.createElement('div');
+    card.className = 'pending-claim flash';
+    card.id = `pclaim-${idx}`;
+
+    const label = claimLabel(claim.claimType);
+    const calledSet = new Set(gameState.calledNumbers);
+    const rowMap = { top:0, middle:1, bottom:2 };
+    const winRows = claim.claimType === 'full' ? [0,1,2] : [rowMap[claim.claimType]];
+
+    // Mini ticket preview
+    let miniHtml = '<div class="pending-mini-ticket">';
+    for (let r = 0; r < 3; r++) {
+      for (let c = 0; c < 9; c++) {
+        const val = claim.ticket[r][c];
+        if (val === null) {
+          miniHtml += '<div class="pmt-cell blank"></div>';
+        } else {
+          const isCalled   = calledSet.has(val);
+          const isWinRow   = winRows.includes(r);
+          let cls = 'pmt-cell';
+          if (isWinRow) cls += ' win-row-preview';
+          if (isCalled)  cls += ' called';
+          miniHtml += `<div class="${cls}">${val}</div>`;
+        }
+      }
+    }
+    miniHtml += '</div>';
+
+    const validNote = claim.valid
+      ? '<span style="color:var(--green);font-size:.75rem;">✔ All numbers called — valid</span>'
+      : '<span style="color:var(--accent2);font-size:.75rem;">✖ Some numbers not yet called — invalid</span>';
+
+    // Host cannot accept an invalid claim — button is disabled when numbers aren't all called
+    const acceptDisabled = claim.valid ? '' : 'disabled style="opacity:0.35;cursor:not-allowed;" title="Not all numbers have been called yet"';
+
+    card.innerHTML = `
+      <div class="pending-claim-header">
+        <span class="pending-claim-name">${claim.name}</span>
+        <span class="pending-claim-type">${label}</span>
+      </div>
+      ${miniHtml}
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+        ${validNote}
+        <div class="pending-actions">
+          <button class="btn btn-danger" onclick="rejectClaim(${idx})">Reject</button>
+          <button class="btn btn-green" onclick="acceptClaim(${idx})" ${acceptDisabled}>Accept</button>
+        </div>
+      </div>
+    `;
+    list.appendChild(card);
+  });
+}
+
+function acceptClaim(idx) {
+  const claim = pendingClaims[idx];
+  if (!claim) return;
+
+  // Hard guard — cannot accept if the numbers haven't all been called
+  if (!claim.valid) {
+    toast('Cannot accept — not all numbers have been called yet', 3000);
+    return;
+  }
+  pendingClaims.splice(idx, 1);
+
+  const player = gameState.players[claim.playerId];
+  if (!player) { renderPendingClaims(); return; }
+
+  gameState.wins.push({ playerId:claim.playerId, name:claim.name, type:claim.claimType });
+  player.wins = player.wins || [];
+  player.wins.push(claim.claimType);
+
+  const label = claimLabel(claim.claimType);
+  addClaimsLog(`✅ ${claim.name} wins ${label}`);
+  send({ type:'win', room:roomCode, playerId:claim.playerId, name:claim.name, claimType:claim.claimType });
+  renderPlayersList(gameState.players);
+  renderPendingClaims();
+  toast(`✅ Accepted: ${claim.name} — ${label}`);
+}
+
+function rejectClaim(idx) {
+  const claim = pendingClaims[idx];
+  if (!claim) return;
+  pendingClaims.splice(idx, 1);
+
+  const label = claimLabel(claim.claimType);
+  addClaimsLog(`❌ Rejected: ${claim.name} (${label})`);
+  send({ type:'claim_rejected', room:roomCode, playerId:claim.playerId, claimType:claim.claimType });
+  renderPendingClaims();
+  toast(`❌ Rejected: ${claim.name} — ${label}`);
+}
+
+
+function validateClaim(ticketGrid, claimType, calledNumbers) {
+  const calledSet=new Set(calledNumbers);
+  function rowOk(row){
+    for(let c=0;c<9;c++){
+      const val=ticketGrid[row][c]; if(val===null) continue;
+      if(!calledSet.has(val)) return false;
+    }
+    return true;
+  }
+  if(claimType==='top')    return rowOk(0);
+  if(claimType==='middle') return rowOk(1);
+  if(claimType==='bottom') return rowOk(2);
+  if(claimType==='full')   return rowOk(0)&&rowOk(1)&&rowOk(2);
+  return false;
+}
+
+function claimLabel(type){
+  return {top:'Top Line',middle:'Middle Line',bottom:'Bottom Line',full:'Full House 🏆'}[type]||type;
+}
+
+function callNumber(){
+  if(!gameState||gameState.ended) return;
+  if(gameState.remaining.length===0){ toast('All 90 numbers called!'); return; }
+  const num=gameState.remaining.pop();
+  gameState.calledNumbers.push(num); gameState.started=true;
+  document.getElementById('host-last-num').textContent=num;
+  renderHostBoard(gameState.calledNumbers);
+  updateRemaining(gameState.remaining.length);
+  addHostLog(`Called: ${num}`); flashNumber(num);
+  send({type:'number_called',room:roomCode,number:num,calledNumbers:gameState.calledNumbers,state:gameState});
+  if(gameState.remaining.length===0){ toast('All 90 numbers called!'); stopAutoCall(); }
+}
+
+function renderHostBoard(calledNumbers){
+  const board=document.getElementById('host-board');
+  const calledSet=new Set(calledNumbers), last=calledNumbers[calledNumbers.length-1];
+  board.innerHTML='';
+  for(let n=1;n<=90;n++){
+    const cell=document.createElement('div');
+    cell.className='board-num'+(calledSet.has(n)?(n===last?' last-called':' called'):'');
+    cell.textContent=n; board.appendChild(cell);
+  }
+}
+function updateRemaining(count){
+  document.getElementById('remaining-count').textContent=
+    `${count} number${count!==1?'s':''} remaining`;
+}
+function renderPlayersList(players){
+  const list=document.getElementById('players-list');
+  const count=Object.keys(players).length;
+  document.getElementById('player-count').textContent=`(${count})`;
+  if(count===0){ list.innerHTML='<p style="color:var(--muted);font-size:.82rem;">No players yet</p>'; return; }
+  list.innerHTML='';
+  for(const [,p] of Object.entries(players)){
+    const row=document.createElement('div'); row.className='player-row';
+    const wins=(p.wins||[]).map(claimLabel).join(', ')||'–';
+    row.innerHTML=`<span>${p.name}</span><span class="wins">${wins}</span>`;
+    list.appendChild(row);
+  }
+}
+function addHostLog(msg){ prependLog('host-log',msg); }
+function addClaimsLog(msg){
+  const log=document.getElementById('claims-log');
+  if(log.children.length===1&&log.children[0].textContent==='None yet') log.innerHTML='';
+  prependLog('claims-log',msg);
+}
+function prependLog(id,msg){
+  const log=document.getElementById(id);
+  const span=document.createElement('span'); span.textContent=msg; log.prepend(span);
+}
+
+let autoOn=false;
+function toggleAutoCall(){
+  autoOn=!autoOn;
+  const btn=document.getElementById('btn-auto');
+  if(autoOn){
+    btn.style.background='var(--accent)'; btn.style.color='#fff';
+    autoTimer=setInterval(()=>{
+      if(!gameState||gameState.remaining.length===0){stopAutoCall();return;} callNumber();
+    },5000);
+    toast('Auto-call every 5 seconds');
+  } else { stopAutoCall(); }
+}
+function stopAutoCall(){
+  autoOn=false; clearInterval(autoTimer);
+  const btn=document.getElementById('btn-auto');
+  if(btn){ btn.style.background=''; btn.style.color=''; }
+}
+function endGame(){
+  if(!confirm('End the game for everyone?')) return;
+  gameState.ended=true;
+  send({type:'game_ended',room:roomCode});
+  stopAutoCall(); toast('Game ended');
+  setTimeout(()=>location.reload(),1500);
+}
+
+// ══════════════════════════════════════════
+//  PLAYER
+// ══════════════════════════════════════════
+function joinGame(){
+  myName=document.getElementById('player-name').value.trim()||'Player';
+  const code=document.getElementById('join-code').value.trim();
+  if(code.length!==6){ toast('Enter a valid 6-digit code'); return; }
+  roomCode=code; myId=uid(); role='player'; ticket=generateTicket();
+  connectWS(()=>{ send({type:'join_room',code:roomCode,playerId:myId,name:myName}); });
+  showScreen('screen-player');
+  document.getElementById('player-room-label').textContent=`Room: ${roomCode}`;
+  renderPlayerBoard([]);
+}
+
+function handlePlayerMessage(msg){
+  if(msg.type==='error'){
+    toast(`Error: ${msg.message}`); showScreen('screen-lobby'); return;
+  }
+  if(msg.type==='state_sync'){
+    gameState=msg.state;
+    // Disable any win types already claimed by anyone
+    (gameState.wins||[]).forEach(w => disableClaimType(w.type));
+    if(gameState.started&&gameState.calledNumbers.length>0){
+      revealPlayerGame(gameState.calledNumbers);
+      document.getElementById('player-last-num').textContent=
+        gameState.calledNumbers[gameState.calledNumbers.length-1];
+    }
+    return;
+  }
+  if(msg.type==='number_called'){
+    if(msg.state) gameState=msg.state;
+    revealPlayerGame(msg.calledNumbers);
+    document.getElementById('player-last-num').textContent=msg.number;
+    renderPlayerBoard(msg.calledNumbers);
+    flashNumber(msg.number);
+    addPlayerLog(`Called: ${msg.number}`);
+    return;
+  }
+  if(msg.type==='win'){
+    // Disable this win type for everyone — it's been claimed
+    disableClaimType(msg.claimType);
+    if(msg.playerId===myId){
+      showWinBanner(`You win ${claimLabel(msg.claimType)}!`,'🎉 Congratulations!',msg.claimType);
+      highlightWinRow(msg.claimType);
+      claimedWins.add(msg.claimType);
+    } else {
+      toast(`🏆 ${msg.name} wins ${claimLabel(msg.claimType)}!`,3500);
+    }
+    addPlayerLog(`🏆 ${msg.name}: ${claimLabel(msg.claimType)}`);
+    return;
+  }
+  if(msg.type==='claim_pending' && msg.playerId===myId){
+    // Mark button as waiting for host review
+    const btn = document.getElementById(`claim-${msg.claimType}`);
+    if(btn){ btn.classList.add('pending'); btn.disabled=true; }
+    toast(`📋 ${claimLabel(msg.claimType)} claim sent — waiting for host...`, 3500);
+    addPlayerLog(`📋 ${claimLabel(msg.claimType)} — awaiting host review`);
+    return;
+  }
+  if(msg.type==='claim_rejected' && msg.playerId===myId){
+    // Restore the button so the player can try again
+    const btn = document.getElementById(`claim-${msg.claimType}`);
+    if(btn){ btn.classList.remove('pending','claimed'); btn.disabled=false; }
+    const label=claimLabel(msg.claimType);
+    const calledSet=new Set(gameState?gameState.calledNumbers:[]);
+    const rowMap={top:0,middle:1,bottom:2};
+    let missing=[];
+    if(msg.claimType!=='full'){
+      const row=rowMap[msg.claimType];
+      for(let c=0;c<9;c++){ const v=ticket[row][c]; if(v!==null&&!calledSet.has(v)) missing.push(v); }
+    } else {
+      for(let r=0;r<3;r++) for(let c=0;c<9;c++){
+        const v=ticket[r][c]; if(v!==null&&!calledSet.has(v)) missing.push(v);
+      }
+    }
+    const hint=missing.length>0?`Still waiting for: ${missing.join(', ')}`:'Try again';
+    toast(`❌ ${label} rejected. ${hint}`,4500);
+    addPlayerLog(`❌ ${label} rejected — ${hint}`);
+    return;
+  }
+  if(msg.type==='game_ended'){
+    toast('The host ended the game'); setTimeout(()=>location.reload(),2000); return;
+  }
+}
+
+function revealPlayerGame(calledNumbers){
+  gameStarted=true;
+  document.getElementById('waiting-card').style.display    ='none';
+  document.getElementById('game-card').style.display       ='block';
+  document.getElementById('board-card').style.display      ='block';
+  document.getElementById('ticket-card').style.display     ='block';
+  document.getElementById('claims-card').style.display     ='block';
+  document.getElementById('player-log-card').style.display ='block';
+  if(!document.getElementById('player-ticket').hasChildNodes()) renderPlayerTicket();
+  renderPlayerBoard(calledNumbers);
+}
+
+function renderPlayerBoard(calledNumbers){
+  const board=document.getElementById('player-board');
+  const calledSet=new Set(calledNumbers), last=calledNumbers[calledNumbers.length-1];
+  board.innerHTML='';
+  for(let n=1;n<=90;n++){
+    const cell=document.createElement('div');
+    cell.className='board-num'+(calledSet.has(n)?(n===last?' last-called':' called'):'');
+    cell.textContent=n; board.appendChild(cell);
+  }
+}
+
+function renderPlayerTicket(){
+  const headers=document.getElementById('ticket-col-headers');
+  headers.innerHTML='';
+  ['1-9','10s','20s','30s','40s','50s','60s','70s','80+'].forEach(l=>{
+    const d=document.createElement('div'); d.className='ticket-col-label'; d.textContent=l;
+    headers.appendChild(d);
+  });
+  const container=document.getElementById('player-ticket');
+  container.innerHTML='';
+  for(let r=0;r<3;r++){
+    for(let c=0;c<9;c++){
+      const val=ticket[r][c];
+      const cell=document.createElement('div');
+      const key=`${r}-${c}`;
+      if(val===null){
+        cell.className='ticket-cell blank';
+      } else {
+        cell.className='ticket-cell has-number';
+        cell.textContent=val; cell.dataset.key=key; cell.dataset.row=r;
+        cell.addEventListener('click',()=>toggleMark(r,c,cell,val));
+      }
+      container.appendChild(cell);
+    }
+  }
+}
+
+function toggleMark(r,c,cell,val){
+  const key=`${r}-${c}`;
+  if(markedCells.has(key)){
+    markedCells.delete(key); cell.classList.remove('marked');
+  } else {
+    markedCells.add(key); cell.classList.add('marked');
+  }
+}
+
+// highlighting called numbers removed — players track on their own
+
+function highlightWinRow(claimType){
+  const rowMap={top:0,middle:1,bottom:2};
+  const rows=claimType==='full'?[0,1,2]:[rowMap[claimType]];
+  document.querySelectorAll('#player-ticket .ticket-cell.has-number').forEach(cell=>{
+    if(rows.includes(parseInt(cell.dataset.row))){
+      cell.classList.add('win-row'); cell.classList.remove('marked');
+    }
+  });
+}
+
+// Disable a claim type for this player — either they won it or someone else did
+function disableClaimType(type){
+  claimedWins.add(type);
+  const btn = document.getElementById(`claim-${type}`);
+  if(btn){ btn.classList.add('claimed'); btn.disabled=true; }
+  // Full house win locks all remaining buttons too
+  if(type==='full'){
+    ['top','middle','bottom'].forEach(t=>{
+      claimedWins.add(t);
+      const b=document.getElementById(`claim-${t}`); if(b){ b.classList.add('claimed'); b.disabled=true; }
+    });
+  }
+}
+
+function claimWin(type){
+  if(!gameStarted){ toast('Game not started yet'); return; }
+  if(claimedWins.has(type)){ toast('Already claimed that win!'); return; }
+  send({room:roomCode,type:'claim',playerId:myId,claimType:type,ticket:ticket});
+  toast('Claim sent to host...');
+}
+
+function addPlayerLog(msg){ prependLog('player-log',msg); }
+
+// ══════════════════════════════════════════
+//  FLASH / CONFETTI / WIN BANNER / SCRATCH
+// ══════════════════════════════════════════
+function flashNumber(num){
+  const el=document.getElementById('callout-num');
+  el.textContent=num; el.classList.remove('show');
+  void el.offsetWidth; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),1300);
+}
+
+function spawnConfetti(isFull=false){
+  const container=document.getElementById('confetti-container');
+  container.innerHTML='';
+  const colors=['#6c63ff','#ff6584','#f1c40f','#2ecc71','#e74c3c','#3498db','#ff9ff3'];
+  const count=isFull?120:60;
+  for(let i=0;i<count;i++){
+    const piece=document.createElement('div');
+    piece.className='confetti-piece';
+    piece.style.cssText=`left:${Math.random()*100}%;top:-10px;
+      background:${colors[Math.floor(Math.random()*colors.length)]};
+      width:${6+Math.random()*8}px;height:${6+Math.random()*8}px;
+      border-radius:${Math.random()>0.5?'50%':'2px'};
+      animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*1.5}s;`;
+    container.appendChild(piece);
+  }
+  setTimeout(()=>container.innerHTML='',6000);
+}
+
+function showWinBanner(title,msg,claimType){
+  document.getElementById('win-title').textContent=title;
+  document.getElementById('win-msg').textContent=msg;
+  const theme=WIN_THEMES[claimType]||WIN_THEMES.full;
+  const quotePool=QUOTES[claimType]||QUOTES.full;
+  const q=quotePool[Math.floor(Math.random()*quotePool.length)];
+  const reveal=document.getElementById('scratch-reveal');
+  reveal.style.background=theme.bg;
+  document.getElementById('scratch-win-label').textContent=theme.label;
+  document.getElementById('scratch-win-label').style.color=theme.accent;
+  document.getElementById('scratch-emoji').textContent=q.e;
+  document.getElementById('scratch-quote').textContent=`"${q.q}"`;
+  document.getElementById('scratch-quote').style.color=theme.accent;
+  document.getElementById('scratch-author').textContent=`— ${q.a}`;
+  initScratchCanvas(theme.accent);
+  document.getElementById('scratch-hint').style.display='block';
+  document.getElementById('win-banner').classList.add('show');
+  spawnConfetti(claimType==='full');
+}
+
+function dismissWin(){ document.getElementById('win-banner').classList.remove('show'); }
+
+function initScratchCanvas(accentColor){
+  const canvas=document.getElementById('scratch-canvas');
+  const reveal=document.getElementById('scratch-reveal');
+  const w=reveal.offsetWidth||340, h=reveal.offsetHeight||220;
+  canvas.width=w; canvas.height=h;
+  const ctx=canvas.getContext('2d');
+  const grad=ctx.createLinearGradient(0,0,w,h);
+  grad.addColorStop(0,'#2a2a4a'); grad.addColorStop(0.3,accentColor+'88');
+  grad.addColorStop(0.6,'#1a1a2e'); grad.addColorStop(1,accentColor+'55');
+  ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
+  ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
+  for(let y=30;y<h;y+=36) for(let x=30;x<w;x+=100) ctx.fillText('✦ SCRATCH ✦',x,y);
+  ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='bold 20px sans-serif';
+  ctx.textAlign='center'; ctx.fillText('🎁 Scratch Here!',w/2,h/2);
+  let isDrawing=false, revealed=false;
+  function getPos(e){
+    const rect=canvas.getBoundingClientRect();
+    const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+    if(e.touches) return {x:(e.touches[0].clientX-rect.left)*sx,y:(e.touches[0].clientY-rect.top)*sy};
+    return {x:(e.clientX-rect.left)*sx,y:(e.clientY-rect.top)*sy};
+  }
+  function scratch(e){
+    if(!isDrawing||revealed) return; e.preventDefault();
+    const {x,y}=getPos(e);
+    ctx.globalCompositeOperation='destination-out';
+    ctx.beginPath(); ctx.arc(x,y,28,0,Math.PI*2); ctx.fill();
+    const data=ctx.getImageData(0,0,w,h).data;
+    let transparent=0;
+    for(let i=3;i<data.length;i+=4) if(data[i]<128) transparent++;
+    if(transparent/(w*h)>0.55&&!revealed){ revealed=true; revealAll(); }
+  }
+  canvas.onmousedown=e=>{isDrawing=true;scratch(e);};
+  canvas.onmousemove=e=>{if(isDrawing)scratch(e);};
+  canvas.onmouseup=()=>{isDrawing=false;};
+  canvas.onmouseleave=()=>{isDrawing=false;};
+  canvas.ontouchstart=e=>{isDrawing=true;scratch(e);};
+  canvas.ontouchmove=e=>{scratch(e);};
+  canvas.ontouchend=()=>{isDrawing=false;};
+}
+
+function revealAll(){
+  const canvas=document.getElementById('scratch-canvas');
+  const ctx=canvas.getContext('2d');
+  ctx.globalCompositeOperation='destination-out';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+  document.getElementById('scratch-hint').style.display='none';
+}
+
+document.addEventListener('keydown',e=>{
+  if(role==='host'&&e.code==='Space'){e.preventDefault();callNumber();}
+  if(e.code==='Escape') dismissWin();
+});
+</script>
+</body>
+</html>
