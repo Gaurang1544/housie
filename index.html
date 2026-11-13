@@ -276,47 +276,247 @@
     100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
   }
 
-  /* ── SCRATCH CARD ── */
+  /* ── ELEGANT SCRATCH CARD ── */
+  .scratch-container {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    max-width: 380px;
+  }
+
+  .scratch-header {
+    text-align: center;
+    margin-bottom: 16px;
+    animation: slideDown 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  @keyframes slideDown {
+    from { opacity: 0; transform: translateY(-20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .scratch-header-title {
+    font-size: 1.9rem;
+    font-weight: 900;
+    background: linear-gradient(135deg, #ffd700, #ffae19, #fff6a6, #f39c12);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    text-shadow: 0 4px 20px rgba(241, 196, 15, 0.4);
+    letter-spacing: 0.5px;
+  }
+  .scratch-header-sub {
+    color: #cbd5e1;
+    font-size: 0.88rem;
+    margin-top: 3px;
+    font-weight: 500;
+  }
+
+  /* Card casing with luxury gold rim and ambient shadow */
   .scratch-wrapper {
-    position: relative; border-radius: 20px; overflow: hidden;
-    width: min(340px, 90vw);
-    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
-    animation: cardEntrance 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    position: relative;
+    border-radius: 22px;
+    overflow: hidden;
+    width: min(350px, 92vw);
+    background: #0f111a;
+    border: 3px solid rgba(255, 215, 0, 0.45);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08),
+                0 25px 60px rgba(0, 0, 0, 0.8),
+                0 0 40px rgba(241, 196, 15, 0.22);
+    animation: cardEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    user-select: none;
   }
   @keyframes cardEntrance {
-    from { transform: scale(0.5) translateY(60px); opacity: 0; }
-    to   { transform: scale(1) translateY(0);      opacity: 1; }
+    from { transform: scale(0.6) translateY(50px) rotate(-3deg); opacity: 0; }
+    to   { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; }
   }
 
+  /* Shimmer sweep animation across card */
+  .scratch-wrapper::after {
+    content: '';
+    position: absolute;
+    top: -50%; left: -50%; width: 200%; height: 200%;
+    background: linear-gradient(60deg, transparent 40%, rgba(255, 255, 255, 0.12) 50%, transparent 60%);
+    transform: rotate(25deg);
+    pointer-events: none;
+    animation: shimmerPass 6s infinite ease-in-out;
+  }
+  @keyframes shimmerPass {
+    0% { transform: translateX(-150%) rotate(25deg); }
+    25%, 100% { transform: translateX(150%) rotate(25deg); }
+  }
+
+  /* Revealed Layer (behind foil) */
   .scratch-reveal {
-    padding: 36px 28px 28px;
+    position: relative;
+    padding: 30px 24px 24px;
     display: flex; flex-direction: column; align-items: center; gap: 12px;
-    text-align: center; min-height: 220px; justify-content: center;
+    text-align: center; min-height: 250px; justify-content: center;
+    overflow: hidden;
   }
 
-  .scratch-win-label {
-    font-size: 0.75rem; font-weight: 700; letter-spacing: 3px; text-transform: uppercase;
-    opacity: 0.8;
+  /* Rotating sunburst in prize card */
+  .scratch-sunburst {
+    position: absolute;
+    inset: -60%;
+    background: repeating-conic-gradient(from 0deg, rgba(255,255,255,0.035) 0deg 12deg, transparent 12deg 24deg);
+    animation: rotateSunburst 28s linear infinite;
+    pointer-events: none;
   }
-  .scratch-emoji { font-size: 3rem; line-height: 1; }
+  @keyframes rotateSunburst {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+  .scratch-win-badge {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.76rem;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    background: rgba(0, 0, 0, 0.45);
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    border-radius: 20px;
+    padding: 5px 16px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.35);
+    backdrop-filter: blur(6px);
+  }
+
+  .scratch-emoji {
+    font-size: 3.8rem;
+    line-height: 1;
+    filter: drop-shadow(0 8px 20px rgba(0,0,0,0.6));
+    animation: floatEmoji 2.2s ease-in-out infinite alternate;
+  }
+  @keyframes floatEmoji {
+    from { transform: translateY(0) scale(1); }
+    to { transform: translateY(-7px) scale(1.08); }
+  }
+
+  .scratch-quote-box {
+    position: relative;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 14px;
+    padding: 14px 18px;
+    max-width: 290px;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 8px 24px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(8px);
+  }
+  .scratch-quote-mark {
+    position: absolute;
+    font-size: 2.8rem;
+    line-height: 1;
+    font-family: Georgia, serif;
+    opacity: 0.2;
+    color: #fff;
+    pointer-events: none;
+  }
+  .scratch-quote-mark.left { top: -2px; left: 8px; }
+  .scratch-quote-mark.right { bottom: -18px; right: 8px; }
+
   .scratch-quote {
-    font-size: 1.05rem; font-weight: 600; line-height: 1.5;
-    max-width: 280px;
+    font-size: 0.98rem;
+    font-weight: 600;
+    line-height: 1.45;
+    position: relative;
+    z-index: 1;
   }
-  .scratch-author { font-size: 0.78rem; opacity: 0.65; margin-top: -4px; }
+  .scratch-author {
+    font-size: 0.78rem;
+    opacity: 0.75;
+    margin-top: 6px;
+    font-style: italic;
+    font-weight: 500;
+  }
 
+  /* Canvas Foil Layer */
   .scratch-canvas {
-    position: absolute; inset: 0; cursor: crosshair;
+    position: absolute;
+    inset: 0;
+    cursor: crosshair;
     touch-action: none;
+    transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .scratch-canvas.fade-out {
+    opacity: 0;
+    pointer-events: none;
   }
 
+  /* Sparkle particles flying off coin */
+  .scratch-sparkle-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 10;
+  }
+  .scratch-spark {
+    position: absolute;
+    pointer-events: none;
+    font-size: 15px;
+    font-weight: 900;
+    line-height: 1;
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.9);
+    animation: sparkFly 0.65s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+  }
+  @keyframes sparkFly {
+    0% { transform: translate(0, 0) scale(1.4) rotate(0deg); opacity: 1; }
+    100% { transform: translate(var(--tx), var(--ty)) scale(0) rotate(180deg); opacity: 0; }
+  }
+
+  /* Meta Progress Pill & Hint */
+  .scratch-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 14px;
+    padding: 0 6px;
+  }
   .scratch-hint {
-    color: var(--muted); font-size: 0.8rem; margin-top: 10px;
-    animation: pulse 1.5s ease infinite;
+    color: var(--yellow);
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    animation: pulse 1.6s ease infinite;
   }
-  @keyframes pulse { 0%,100%{opacity:.5} 50%{opacity:1} }
+  .scratch-progress-pill {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    border-radius: 20px;
+    padding: 3px 10px;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #cbd5e1;
+    letter-spacing: 0.5px;
+  }
 
-  .scratch-actions { display: flex; gap: 10px; margin-top: 16px; }
+  .scratch-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    width: 100%;
+    max-width: 350px;
+  }
+  .scratch-actions .btn {
+    flex: 1;
+    padding: 12px 16px;
+    font-size: 0.9rem;
+    border-radius: 12px;
+  }
+  .btn-reveal {
+    background: linear-gradient(135deg, #f1c40f, #e67e22);
+    color: #000;
+    font-weight: 700;
+    box-shadow: 0 4px 16px rgba(241, 196, 15, 0.35);
+  }
 
   /* ── toast ── */
   #toast {
@@ -489,29 +689,41 @@
 
 <!-- ══════════════ WIN BANNER + SCRATCH CARD ══════════════ -->
 <div class="win-banner" id="win-banner">
-  <div style="text-align:center;margin-bottom:16px;">
-    <div style="font-size:1.6rem;font-weight:700;color:var(--yellow);" id="win-title">🎉 Winner!</div>
-    <div style="color:var(--muted);font-size:.88rem;margin-top:4px;" id="win-msg"></div>
-  </div>
-
-  <!-- Scratch Card -->
-  <div class="scratch-wrapper" id="scratch-wrapper">
-    <!-- Revealed layer (behind canvas) -->
-    <div class="scratch-reveal" id="scratch-reveal">
-      <div class="scratch-win-label" id="scratch-win-label">Top Line</div>
-      <div class="scratch-emoji"     id="scratch-emoji">🌟</div>
-      <div class="scratch-quote"     id="scratch-quote">"Loading..."</div>
-      <div class="scratch-author"    id="scratch-author">– Someone</div>
+  <div class="scratch-container">
+    <div class="scratch-header">
+      <div class="scratch-header-title" id="win-title">🎉 WINNER!</div>
+      <div class="scratch-header-sub" id="win-msg">You claimed a winning line!</div>
     </div>
-    <!-- Scratch overlay canvas -->
-    <canvas class="scratch-canvas" id="scratch-canvas"></canvas>
-  </div>
 
-  <p class="scratch-hint" id="scratch-hint">✨ Scratch to reveal your prize quote!</p>
+    <!-- Scratch Card Outer -->
+    <div class="scratch-wrapper" id="scratch-wrapper">
+      <!-- Revealed layer (behind canvas) -->
+      <div class="scratch-reveal" id="scratch-reveal">
+        <div class="scratch-sunburst"></div>
+        <div class="scratch-win-badge" id="scratch-win-label">TOP LINE 🔝</div>
+        <div class="scratch-emoji" id="scratch-emoji">🌟</div>
+        <div class="scratch-quote-box">
+          <span class="scratch-quote-mark left">“</span>
+          <div class="scratch-quote" id="scratch-quote">"Loading..."</div>
+          <span class="scratch-quote-mark right">”</span>
+          <div class="scratch-author" id="scratch-author">– Someone</div>
+        </div>
+      </div>
+      <!-- Scratch overlay canvas -->
+      <canvas class="scratch-canvas" id="scratch-canvas"></canvas>
+      <!-- Sparkle particles layer -->
+      <div class="scratch-sparkle-layer" id="scratch-sparkle-layer"></div>
+    </div>
 
-  <div class="scratch-actions">
-    <button class="btn btn-secondary" onclick="revealAll()">Reveal All</button>
-    <button class="btn btn-primary"   onclick="dismissWin()">Continue</button>
+    <div class="scratch-meta">
+      <div class="scratch-hint" id="scratch-hint">🪙 Rub foil to scratch & reveal!</div>
+      <div class="scratch-progress-pill" id="scratch-progress">0% Unlocked</div>
+    </div>
+
+    <div class="scratch-actions">
+      <button class="btn btn-reveal" onclick="revealAll()">✨ Auto Reveal</button>
+      <button class="btn btn-secondary" onclick="dismissWin()">Continue Playing</button>
+    </div>
   </div>
 </div>
 
@@ -1522,63 +1734,320 @@ function showWinBanner(title,msg,claimType){
   document.getElementById('scratch-win-label').textContent=theme.label;
   document.getElementById('scratch-win-label').style.color=theme.accent;
   document.getElementById('scratch-emoji').textContent=q.e;
-  document.getElementById('scratch-quote').textContent=`"${q.q}"`;
+  document.getElementById('scratch-quote').textContent=q.q;
   document.getElementById('scratch-quote').style.color=theme.accent;
   document.getElementById('scratch-author').textContent=`— ${q.a}`;
+  
+  // Reset hint & progress
+  document.getElementById('scratch-hint').textContent = '🪙 Rub foil to scratch & reveal!';
+  document.getElementById('scratch-progress').textContent = '0% Unlocked';
+  
   initScratchCanvas(theme.accent);
-  document.getElementById('scratch-hint').style.display='block';
   document.getElementById('win-banner').classList.add('show');
   spawnConfetti(claimType==='full');
 }
 
-function dismissWin(){ document.getElementById('win-banner').classList.remove('show'); }
-
-function initScratchCanvas(accentColor){
-  const canvas=document.getElementById('scratch-canvas');
-  const reveal=document.getElementById('scratch-reveal');
-  const w=reveal.offsetWidth||340, h=reveal.offsetHeight||220;
-  canvas.width=w; canvas.height=h;
-  const ctx=canvas.getContext('2d');
-  const grad=ctx.createLinearGradient(0,0,w,h);
-  grad.addColorStop(0,'#2a2a4a'); grad.addColorStop(0.3,accentColor+'88');
-  grad.addColorStop(0.6,'#1a1a2e'); grad.addColorStop(1,accentColor+'55');
-  ctx.fillStyle=grad; ctx.fillRect(0,0,w,h);
-  ctx.fillStyle='rgba(255,255,255,0.08)'; ctx.font='bold 16px sans-serif'; ctx.textAlign='center';
-  for(let y=30;y<h;y+=36) for(let x=30;x<w;x+=100) ctx.fillText('✦ SCRATCH ✦',x,y);
-  ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.font='bold 20px sans-serif';
-  ctx.textAlign='center'; ctx.fillText('🎁 Scratch Here!',w/2,h/2);
-  let isDrawing=false, revealed=false;
-  function getPos(e){
-    const rect=canvas.getBoundingClientRect();
-    const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
-    if(e.touches) return {x:(e.touches[0].clientX-rect.left)*sx,y:(e.touches[0].clientY-rect.top)*sy};
-    return {x:(e.clientX-rect.left)*sx,y:(e.clientY-rect.top)*sy};
-  }
-  function scratch(e){
-    if(!isDrawing||revealed) return; e.preventDefault();
-    const {x,y}=getPos(e);
-    ctx.globalCompositeOperation='destination-out';
-    ctx.beginPath(); ctx.arc(x,y,28,0,Math.PI*2); ctx.fill();
-    const data=ctx.getImageData(0,0,w,h).data;
-    let transparent=0;
-    for(let i=3;i<data.length;i+=4) if(data[i]<128) transparent++;
-    if(transparent/(w*h)>0.55&&!revealed){ revealed=true; revealAll(); }
-  }
-  canvas.onmousedown=e=>{isDrawing=true;scratch(e);};
-  canvas.onmousemove=e=>{if(isDrawing)scratch(e);};
-  canvas.onmouseup=()=>{isDrawing=false;};
-  canvas.onmouseleave=()=>{isDrawing=false;};
-  canvas.ontouchstart=e=>{isDrawing=true;scratch(e);};
-  canvas.ontouchmove=e=>{scratch(e);};
-  canvas.ontouchend=()=>{isDrawing=false;};
+function dismissWin(){ 
+  document.getElementById('win-banner').classList.remove('show'); 
 }
 
-function revealAll(){
-  const canvas=document.getElementById('scratch-canvas');
-  const ctx=canvas.getContext('2d');
-  ctx.globalCompositeOperation='destination-out';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  document.getElementById('scratch-hint').style.display='none';
+// ── Audio Feedback Synthesizer (Zero External Files) ──
+let scratchAudioCtx = null;
+function getScratchAudio() {
+  if (!scratchAudioCtx && (window.AudioContext || window.webkitAudioContext)) {
+    const AudioCtor = window.AudioContext || window.webkitAudioContext;
+    scratchAudioCtx = new AudioCtor();
+  }
+  if (scratchAudioCtx && scratchAudioCtx.state === 'suspended') {
+    scratchAudioCtx.resume();
+  }
+  return scratchAudioCtx;
+}
+
+let lastScratchSoundTime = 0;
+function playScratchFriction() {
+  const now = Date.now();
+  if (now - lastScratchSoundTime < 65) return;
+  lastScratchSoundTime = now;
+  try {
+    const actx = getScratchAudio();
+    if (!actx) return;
+    const osc = actx.createOscillator();
+    const gain = actx.createGain();
+    const filter = actx.createBiquadFilter();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(220 + Math.random() * 260, actx.currentTime);
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime(900 + Math.random() * 500, actx.currentTime);
+    gain.gain.setValueAtTime(0.03, actx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + 0.07);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(actx.destination);
+    osc.start();
+    osc.stop(actx.currentTime + 0.07);
+  } catch(e){}
+}
+
+function playWinFanfare() {
+  try {
+    const actx = getScratchAudio();
+    if (!actx) return;
+    const notes = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+    notes.forEach((freq, idx) => {
+      const osc = actx.createOscillator();
+      const gain = actx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, actx.currentTime + idx * 0.1);
+      gain.gain.setValueAtTime(0.12, actx.currentTime + idx * 0.1);
+      gain.gain.exponentialRampToValueAtTime(0.001, actx.currentTime + idx * 0.1 + 0.4);
+      osc.connect(gain);
+      gain.connect(actx.destination);
+      osc.start(actx.currentTime + idx * 0.1);
+      osc.stop(actx.currentTime + idx * 0.1 + 0.4);
+    });
+  } catch(e){}
+}
+
+// ── Particle Sparks on Scratch ──
+function spawnScratchSparkles(x, y) {
+  const layer = document.getElementById('scratch-sparkle-layer');
+  if (!layer) return;
+  const count = 3;
+  const symbols = ['✦', '★', '✨', '•'];
+  for (let i = 0; i < count; i++) {
+    const spark = document.createElement('span');
+    spark.className = 'scratch-spark';
+    spark.textContent = symbols[Math.floor(Math.random() * symbols.length)];
+    spark.style.left = (x - 6) + 'px';
+    spark.style.top = (y - 6) + 'px';
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 20 + Math.random() * 32;
+    spark.style.setProperty('--tx', Math.cos(angle) * dist + 'px');
+    spark.style.setProperty('--ty', Math.sin(angle) * dist + 'px');
+    spark.style.color = Math.random() > 0.4 ? '#ffd700' : '#ffffff';
+    layer.appendChild(spark);
+    setTimeout(() => spark.remove(), 650);
+  }
+}
+
+// ── High-DPI Scratch Canvas with Metallic Foil ──
+function initScratchCanvas(accentColor){
+  const canvas = document.getElementById('scratch-canvas');
+  const reveal = document.getElementById('scratch-reveal');
+  const sparkleLayer = document.getElementById('scratch-sparkle-layer');
+  if (sparkleLayer) sparkleLayer.innerHTML = '';
+  
+  canvas.classList.remove('fade-out');
+
+  const rect = reveal.getBoundingClientRect();
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = (rect.width || 340);
+  const h = (rect.height || 240);
+
+  canvas.width = Math.round(w * dpr);
+  canvas.height = Math.round(h * dpr);
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // 1. Render Luxury Metallic Gold Foil
+  const grad = ctx.createLinearGradient(0, 0, w, h);
+  grad.addColorStop(0.00, '#d4af37'); // Gold
+  grad.addColorStop(0.18, '#f5e79e'); // Light gold
+  grad.addColorStop(0.35, '#fffbe6'); // Gleam shine
+  grad.addColorStop(0.55, '#c59b27'); // Rich gold
+  grad.addColorStop(0.72, '#f9e79f'); // Warm amber
+  grad.addColorStop(0.88, '#aa7c11'); // Dark bronze
+  grad.addColorStop(1.00, '#e5c158'); // Bright gold
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, w, h);
+
+  // 2. Subtle brushed metal diagonal lines
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+  ctx.lineWidth = 1;
+  for (let x = -h; x < w + h; x += 10) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x + h, h);
+    ctx.stroke();
+  }
+
+  // 3. Ornate Double Gold Border & Corner Accents
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(10, 10, w - 20, h - 20);
+
+  ctx.strokeStyle = 'rgba(160, 110, 10, 0.55)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(14, 14, w - 28, h - 28);
+
+  // Corner Stars
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('✦', 20, 20);
+  ctx.fillText('✦', w - 20, 20);
+  ctx.fillText('✦', 20, h - 20);
+  ctx.fillText('✦', w - 20, h - 20);
+
+  // 4. Center Gold Medal Emblem
+  const cx = w / 2;
+  const cy = h / 2;
+
+  // Badge background plaque
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.22)';
+  ctx.beginPath();
+  if (ctx.roundRect) {
+    ctx.roundRect(cx - 105, cy - 48, 210, 96, 16);
+  } else {
+    ctx.rect(cx - 105, cy - 48, 210, 96);
+  }
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+  ctx.lineWidth = 1.2;
+  ctx.stroke();
+
+  // Coin Icon
+  ctx.font = '36px sans-serif';
+  ctx.fillText('🪙', cx, cy - 12);
+
+  // Emblem Text
+  ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+  ctx.shadowBlur = 6;
+  ctx.shadowOffsetY = 2;
+  ctx.fillStyle = '#ffffff';
+  ctx.font = '800 13px system-ui, -apple-system, sans-serif';
+  ctx.fillText('★ GOLDEN SCRATCH ★', cx, cy + 18);
+
+  ctx.font = '700 9px system-ui, -apple-system, sans-serif';
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
+  ctx.fillText('✦ RUB WITH COIN TO UNLOCK ✦', cx, cy + 32);
+  ctx.shadowColor = 'transparent';
+
+  // ── Scratch Drawing Physics ──
+  let isDrawing = false;
+  let revealed = false;
+  let lastX = 0;
+  let lastY = 0;
+  let strokeCount = 0;
+
+  function getCanvasPos(e) {
+    const cRect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - cRect.left),
+      y: (clientY - cRect.top),
+      clientX: clientX,
+      clientY: clientY
+    };
+  }
+
+  function startScratch(e) {
+    if (revealed) return;
+    isDrawing = true;
+    const pos = getCanvasPos(e);
+    lastX = pos.x;
+    lastY = pos.y;
+    scratchMove(e);
+  }
+
+  function scratchMove(e) {
+    if (!isDrawing || revealed) return;
+    if (e.cancelable) e.preventDefault();
+
+    const pos = getCanvasPos(e);
+
+    // Continuous smooth line erasing
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.lineWidth = 48;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    ctx.beginPath();
+    ctx.moveTo(lastX, lastY);
+    ctx.lineTo(pos.x, pos.y);
+    ctx.stroke();
+
+    ctx.beginPath();
+    ctx.arc(pos.x, pos.y, 24, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+
+    lastX = pos.x;
+    lastY = pos.y;
+
+    // Sparkles and Audio
+    spawnScratchSparkles(pos.x, pos.y);
+    playScratchFriction();
+    if (navigator.vibrate) navigator.vibrate(8);
+
+    // Throttled percentage calculation
+    strokeCount++;
+    if (strokeCount % 12 === 0) {
+      checkScratchProgress();
+    }
+  }
+
+  function endScratch() {
+    if (!isDrawing) return;
+    isDrawing = false;
+    checkScratchProgress();
+  }
+
+  function checkScratchProgress() {
+    if (revealed) return;
+    try {
+      const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imgData.data;
+      let cleared = 0;
+      const total = data.length / 4;
+      // Sample every 4th pixel for high performance
+      for (let i = 3; i < data.length; i += 16) {
+        if (data[i] < 128) cleared++;
+      }
+      const pct = cleared / (total / 4);
+      const displayPct = Math.min(100, Math.round(pct * 100));
+      
+      const progEl = document.getElementById('scratch-progress');
+      if (progEl) progEl.textContent = `${displayPct}% Unlocked`;
+
+      // Auto-reveal when 40% cleared!
+      if (pct >= 0.40 && !revealed) {
+        revealed = true;
+        revealAll(true);
+      }
+    } catch(err){}
+  }
+
+  canvas.onmousedown = startScratch;
+  canvas.onmousemove = scratchMove;
+  canvas.onmouseup = endScratch;
+  canvas.onmouseleave = endScratch;
+
+  canvas.ontouchstart = startScratch;
+  canvas.ontouchmove = scratchMove;
+  canvas.ontouchend = endScratch;
+  canvas.ontouchcancel = endScratch;
+}
+
+function revealAll(autoTriggered = false){
+  const canvas = document.getElementById('scratch-canvas');
+  if (canvas) {
+    canvas.classList.add('fade-out');
+  }
+  const hintEl = document.getElementById('scratch-hint');
+  if (hintEl) hintEl.textContent = '🎉 Prize Unlocked!';
+  const progEl = document.getElementById('scratch-progress');
+  if (progEl) progEl.textContent = '100% Unlocked';
+
+  playWinFanfare();
+  spawnConfetti(true);
 }
 
 document.addEventListener('keydown',e=>{
