@@ -122,13 +122,17 @@ wss.on('connection', ws => {
     // ── host denies join ──
     if (type === 'join_denied') {
       const playerId = msg.playerId;
+      
       // Find and notify the denied player
-      wss.clients.forEach(client => {
-        if (client.tempPlayerId === playerId && client.readyState === 1) {
-          client.send(JSON.stringify({ type: 'join_denied', message: 'Host denied your join request' }));
-          console.log(`Player ${playerId} denied by host`);
-        }
-      });
+      const playerWs = clientsByPlayerId.get(playerId);
+      
+      if (playerWs && playerWs.readyState === 1) {
+        playerWs.send(JSON.stringify({ type: 'join_denied', message: 'Host denied your join request' }));
+        console.log(`Player ${playerId} denied by host`);
+        
+        // Clean up the stored reference
+        clientsByPlayerId.delete(playerId);
+      }
       return;
     }
 
@@ -152,6 +156,11 @@ wss.on('connection', ws => {
         delete rooms[code];
         console.log(`Room ${code} closed (empty)`);
       }
+    }
+    
+    // Clean up from pending joins map if they were waiting
+    if (ws.tempPlayerId) {
+      clientsByPlayerId.delete(ws.tempPlayerId);
     }
   });
 });
