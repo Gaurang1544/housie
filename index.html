@@ -796,13 +796,18 @@ function acceptJoinRequest(playerId) {
   
   removeJoinRequestCard(playerId);
   
-  // Add player to game
+  // Add player to game state
   gameState.players[playerId] = { name: request.name, wins: [] };
+  
+  // Send approval with full state
   send({ type: 'join_approved', room: roomCode, playerId: playerId, state: gameState });
   
   addHostLog(`✅ ${request.name} joined`);
   renderPlayersList(gameState.players);
   toast(`✅ ${request.name} joined the game`);
+  
+  // Also broadcast to other players in the room
+  send({ type: 'state_update', room: roomCode, state: gameState });
 }
 
 function denyJoinRequest(playerId) {
