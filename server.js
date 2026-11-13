@@ -98,19 +98,24 @@ wss.on('connection', ws => {
     if (type === 'join_approved') {
       const code = msg.room;
       const playerId = msg.playerId;
-      // Find the waiting player websocket across all connections
-      wss.clients.forEach(client => {
-        if (client.tempPlayerId === playerId && client.readyState === 1) {
-          // Now officially add them to the room
-          client.roomCode = code;
-          rooms[code].clients.add(client);
-          // Send state sync to the newly approved player
-          client.send(JSON.stringify({ type: 'state_sync', state: msg.state }));
-          console.log(`Player ${playerId} approved and added to room ${code}`);
-        }
-      });
-      // Broadcast to all OTHER players that someone joined
-      broadcast(code, { type: 'state_update', state: msg.state });
+      
+      // Find the waiting player websocket
+      const playerWs = clientsByPlayerId.get(playerId);
+      
+      if (playerWs && playerWs.readyState === 1) {
+        // Now officially add them to the room
+        playerWs.roomCode = code;
+        rooms[code].clients.add(playerWs);
+        
+        // Send state sync to the newly approved player
+        playerWs.send(JSON.stringify({ type: 'state_sync', state: msg.state }));
+        console.log(`Player ${playerId} approved and added to room ${code}`);
+        
+        // Broadcast to all OTHER players that someone joined (excluding the newly joined player)
+        broadcast(code, { type: 'state_update', state: msg.state }, playerWs);
+      } else {
+        console.log(`Could not find websocket for player ${playerId}`);
+      }
       return;
     }
 
