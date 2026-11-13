@@ -707,6 +707,8 @@ function send(msg) {
 // ══════════════════════════════════════════
 //  HOST
 // ══════════════════════════════════════════
+let pendingJoinRequests = []; // { playerId, name, timestamp }
+
 function hostGame() {
   myName = document.getElementById('player-name').value.trim() || 'Host';
   myId = uid(); roomCode = genCode();
@@ -728,10 +730,8 @@ function handleHostMessage(msg) {
     return;
   }
   if(msg.type==='join'){
-    gameState.players[msg.playerId]={name:msg.name,wins:[]};
-    send({ type:'state_update', room:roomCode, state:gameState });
-    addHostLog(`${msg.name} joined`);
-    renderPlayersList(gameState.players);
+    // Show join request popup instead of auto-accepting
+    showJoinRequest(msg.playerId, msg.name);
     return;
   }
   if(msg.type==='claim'){
@@ -745,6 +745,79 @@ function handleHostMessage(msg) {
       claimType:msg.claimType, ticket:msg.ticket, valid });
     return;
   }
+}
+
+// ══════════════════════════════════════════
+//  JOIN REQUEST POPUP (host)
+// ══════════════════════════════════════════
+function showJoinRequest(playerId, name) {
+  // Check if already in queue
+  if(pendingJoinRequests.some(r => r.playerId === playerId)) return;
+  
+  pendingJoinRequests.push({ playerId, name, timestamp: Date.now() });
+  
+  const overlay = document.getElementById('join-popup-overlay');
+  const card = document.createElement('div');
+  card.className = 'join-request-card';
+  card.id = `join-req-${playerId}`;
+  
+  // Get initials for avatar
+  const initials = name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+  
+  card.innerHTML = `
+    <div class="join-request-info">
+      <div class="join-request-avatar">${initials}</div>
+      <div>
+        <div class="join-request-name">${name}</div>
+        <div class="join-request-sub">wants to join</div>
+      </div>
+    </div>
+    <div class="join-request-actions">
+      <button class="btn btn-danger" onclick="denyJoinRequest('${playerId}')">Deny</button>
+      <button class="btn btn-green" onclick="acceptJoinRequest('${playerId}', '${name.replace(/'/g, "\\'")}')">Accept</button>
+    </div>
+  `;
+  
+  overlay.appendChild(card);
+  
+  // Auto-remove after 30 seconds if no response
+  setTimeout(() => {
+    const stillPending = document.getElementById(`join-req-${playerId}`);
+    if(stillPending) {
+      denyJoinRequest(playerId);
+    }
+  }, 30000);
+}
+
+function acceptJoinRequest(playerId, name) {
+  removeJoinRequestCard(playerId);
+  
+  // Add player to game
+  gameState.players[playerId] = { name: name, wins: [] };
+  send({ type: 'join_approved', room: roomCode, playerId: playerId, state: gameState });
+  
+  addHostLog(`✅ ${name} joined`);
+  renderPlayersList(gameState.players);
+  toast(`✅ ${name} joined the game`);
+}
+
+function denyJoinRequest(playerId) {
+  const request = pendingJoinRequests.find(r => r.playerId === playerId);
+  removeJoinRequestCard(playerId);
+  
+  // Notify player their join was denied
+  send({ type: 'join_denied', room: roomCode, playerId: playerId });
+  
+  if(request) {
+    addHostLog(`❌ Denied ${request.name}'s join request`);
+    toast(`❌ Denied ${request.name}`);
+  }
+}
+
+function removeJoinRequestCard(playerId) {
+  pendingJoinRequests = pendingJoinRequests.filter(r => r.playerId !== playerId);
+  const card = document.getElementById(`join-req-${playerId}`);
+  if(card) card.remove();
 }
 
 // ══════════════════════════════════════════
@@ -994,6 +1067,7 @@ function joinGame(){
   connectWS(()=>{ send({type:'join_room',code:roomCode,playerId:myId,name:myName}); });
   showScreen('screen-player');
   document.getElementById('player-room-label').textContent=`Room: ${roomCode}`;
+  document.getElementById('player-status-text').textContent='⏳ Waiting for host approval...';
   renderPlayerBoard([]);
 }
 
@@ -1012,6 +1086,14 @@ function applyStateSync(state){
 function handlePlayerMessage(msg){
   if(msg.type==='error'){
     toast(`Error: ${msg.message}`); showScreen('screen-lobby'); return;
+  }
+  if(msg.type==='join_denied'){
+    toast('❌ Host denied your join request', 4000);
+    setTimeout(() => {
+      showScreen('screen-lobby');
+      document.getElementById('join-code').value = '';
+    }, 2000);
+    return;
   }
   if(msg.type==='state_sync' || msg.type==='state_update'){
     applyStateSync(msg.state);

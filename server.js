@@ -79,13 +79,49 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
         return;
       }
-      rooms[code].clients.add(ws);
-      ws.roomCode = code;
-      // Forward join to host
-      broadcast(code, { type: 'join', playerId: msg.playerId, name: msg.name }, ws);
-      // Send current state back to joining player
-      ws.send(JSON.stringify({ type: 'state_sync', state: rooms[code].state }));
-      console.log(`${msg.name} joined room ${code}`);
+      // Don't add to room yet - wait for host approval
+      // Store the websocket temporarily
+      ws.tempRoomCode = code;
+      ws.tempPlayerId = msg.playerId;
+      // Forward join request to host only
+      broadcast(code, { type: 'join', playerId: msg.playerId, name: msg.name });
+      console.log(`${msg.name} requested to join room ${code} - awaiting host approval`);
+      return;
+    }
+
+    // ── host approves join ──
+    if (type === 'join_approved') {
+      const code = msg.room;
+      const playerId = msg.playerId;
+      // Find the waiting player websocket
+      rooms[code].clients.forEach(client => {
+        // Check if this is the approved player waiting in temp state
+        // Or find them by playerId if they sent other messages
+        const isApprovedPlayer = client.tempPlayerId === playerId;
+        if (isApprovedPlayer && !client.roomCode) {
+          // Now officially add them to the room
+          client.roomCode = code;
+          rooms[code].clients.add(client);
+          // Send state sync to the newly approved player
+          client.send(JSON.stringify({ type: 'state_sync', state: msg.state }));
+          console.log(`Player ${playerId} approved and added to room ${code}`);
+        }
+      });
+      // Broadcast to all OTHER players that someone joined
+      broadcast(code, { type: 'state_update', state: msg.state });
+      return;
+    }
+
+    // ── host denies join ──
+    if (type === 'join_denied') {
+      const playerId = msg.playerId;
+      // Find and notify the denied player
+      wss.clients.forEach(client => {
+        if (client.tempPlayerId === playerId && client.readyState === 1) {
+          client.send(JSON.stringify({ type: 'join_denied', message: 'Host denied your join request' }));
+          console.log(`Player ${playerId} denied by host`);
+        }
+      });
       return;
     }
 
