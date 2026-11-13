@@ -775,7 +775,7 @@ function showJoinRequest(playerId, name) {
     </div>
     <div class="join-request-actions">
       <button class="btn btn-danger" onclick="denyJoinRequest('${playerId}')">Deny</button>
-      <button class="btn btn-green" onclick="acceptJoinRequest('${playerId}', '${name.replace(/'/g, "\\'")}')">Accept</button>
+      <button class="btn btn-green" onclick="acceptJoinRequest('${playerId}')">Accept</button>
     </div>
   `;
   
@@ -790,16 +790,19 @@ function showJoinRequest(playerId, name) {
   }, 30000);
 }
 
-function acceptJoinRequest(playerId, name) {
+function acceptJoinRequest(playerId) {
+  const request = pendingJoinRequests.find(r => r.playerId === playerId);
+  if (!request) { toast('Request not found'); return; }
+  
   removeJoinRequestCard(playerId);
   
   // Add player to game
-  gameState.players[playerId] = { name: name, wins: [] };
+  gameState.players[playerId] = { name: request.name, wins: [] };
   send({ type: 'join_approved', room: roomCode, playerId: playerId, state: gameState });
   
-  addHostLog(`✅ ${name} joined`);
+  addHostLog(`✅ ${request.name} joined`);
   renderPlayersList(gameState.players);
-  toast(`✅ ${name} joined the game`);
+  toast(`✅ ${request.name} joined the game`);
 }
 
 function denyJoinRequest(playerId) {
