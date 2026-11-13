@@ -587,11 +587,15 @@ function generateTicket() {
 }
 
 // ══════════════════════════════════════════
-//  WEBSOCKET
+//  WEBSOCKET — connects to same host in dev,
+//  or VITE_WS_URL / window.WS_URL on prod
 // ══════════════════════════════════════════
 function connectWS(onOpen) {
-  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-  ws = new WebSocket(`${proto}://${location.host}`);
+  // Railway injects the public URL via a <meta> tag written by server.js
+  const metaWs = document.querySelector('meta[name="ws-url"]');
+  const wsUrl  = metaWs ? metaWs.content
+    : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+  ws = new WebSocket(wsUrl);
   ws.onopen = onOpen;
   ws.onmessage = e => {
     let msg; try { msg = JSON.parse(e.data); } catch { return; }

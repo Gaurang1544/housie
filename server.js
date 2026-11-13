@@ -3,15 +3,35 @@ const fs   = require('fs');
 const path = require('path');
 const { WebSocketServer } = require('ws');
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+// Railway provides RAILWAY_PUBLIC_DOMAIN for the public URL
+// e.g. housie-production.up.railway.app
+const PUBLIC_DOMAIN = process.env.RAILWAY_PUBLIC_DOMAIN || null;
 
 // ── Static file server ──────────────────────────────────────────────
 const server = http.createServer((req, res) => {
   const filePath = path.join(__dirname, 'index.html');
-  fs.readFile(filePath, (err, data) => {
+  fs.readFile(filePath, 'utf8', (err, html) => {
     if (err) { res.writeHead(404); res.end('Not found'); return; }
+
+    // Inject <meta name="ws-url"> so the client knows where to connect.
+    // On Railway this will be wss://housie-production.up.railway.app
+    // Locally it falls back to ws://localhost:PORT
+    let wsUrl;
+    if (PUBLIC_DOMAIN) {
+      wsUrl = `wss://${PUBLIC_DOMAIN}`;
+    } else {
+      wsUrl = `ws://localhost:${PORT}`;
+    }
+
+    const injected = html.replace(
+      '<meta charset="UTF-8" />',
+      `<meta charset="UTF-8" />\n  <meta name="ws-url" content="${wsUrl}" />`
+    );
+
     res.writeHead(200, { 'Content-Type': 'text/html' });
-    res.end(data);
+    res.end(injected);
   });
 });
 
@@ -28,10 +48,6 @@ function broadcast(roomCode, msg, excludeWs = null) {
   room.clients.forEach(ws => {
     if (ws !== excludeWs && ws.readyState === 1) ws.send(data);
   });
-}
-
-function broadcastAll(roomCode, msg) {
-  broadcast(roomCode, msg, null);
 }
 
 wss.on('connection', ws => {
@@ -62,7 +78,7 @@ wss.on('connection', ws => {
       }
       rooms[code].clients.add(ws);
       ws.roomCode = code;
-      // Forward join to host (all other clients, essentially the host)
+      // Forward join to host
       broadcast(code, { type: 'join', playerId: msg.playerId, name: msg.name }, ws);
       // Send current state back to joining player
       ws.send(JSON.stringify({ type: 'state_sync', state: rooms[code].state }));
@@ -71,14 +87,10 @@ wss.on('connection', ws => {
     }
 
     // ── all other messages: relay to room ──
-    if (!room) return;
-    if (!rooms[room]) return;
+    if (!room || !rooms[room]) return;
 
-    // If host is updating state, persist it
-    if (type === 'state_update' && msg.state) {
-      rooms[room].state = msg.state;
-    }
-    if (type === 'number_called' && msg.state) {
+    // Persist state updates
+    if ((type === 'state_update' || type === 'number_called') && msg.state) {
       rooms[room].state = msg.state;
     }
 
@@ -100,15 +112,18 @@ wss.on('connection', ws => {
 
 // ── Start ────────────────────────────────────────────────────────────
 server.listen(PORT, '0.0.0.0', () => {
-  // Print all local IPs so the user knows what to share
   const { networkInterfaces } = require('os');
   const nets = networkInterfaces();
   console.log('\n🎱  Housie server running!\n');
-  console.log(`   Local:   http://localhost:${PORT}`);
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name]) {
-      if (net.family === 'IPv4' && !net.internal) {
-        console.log(`   Network: http://${net.address}:${PORT}  ← share this with other devices`);
+  if (PUBLIC_DOMAIN) {
+    console.log(`   Public:  https://${PUBLIC_DOMAIN}  ← share this link`);
+  } else {
+    console.log(`   Local:   http://localhost:${PORT}`);
+    for (const name of Object.keys(nets)) {
+      for (const net of nets[name]) {
+        if (net.family === 'IPv4' && !net.internal) {
+          console.log(`   Network: http://${net.address}:${PORT}  ← share with other devices`);
+        }
       }
     }
   }
