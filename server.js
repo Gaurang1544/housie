@@ -237,18 +237,52 @@ wss.on('connection', ws => {
 
   ws.on('close', () => {
     const code = ws.roomCode;
+    
+    // Remove from active room
     if (code && rooms[code]) {
       rooms[code].clients.delete(ws);
+      
+      // If player in game, update state to reflect departure
+      if (ws.tempPlayerId) {
+        const gameState = rooms[code].state;
+        if (gameState && gameState.players && gameState.players[ws.tempPlayerId]) {
+          // Remove them from gameState
+          delete gameState.players[ws.tempPlayerId];
+          
+          // Notify remaining players
+          const disconnectMsg = {
+            type: 'player_disconnected',
+            playerId: ws.tempPlayerId,
+            state: gameState
+          };
+          broadcast(code, disconnectMsg);
+          console.log(`Player ${ws.tempPlayerId} disconnected from room ${code}`);
+        }
+      }
+      
+      // Clean up empty rooms
       if (rooms[code].clients.size === 0) {
         delete rooms[code];
+        // Also clean up pending joins for this room
+        delete pendingJoinsByRoom[code];
         console.log(`Room ${code} closed (empty)`);
       }
     }
     
-    // Clean up from pending joins map if they were waiting
+    // Clean up from pending joins if waiting
     if (ws.tempPlayerId) {
       clientsByPlayerId.delete(ws.tempPlayerId);
+      
+      // Also remove from pending joins map for any room
+      for (const roomCode in pendingJoinsByRoom) {
+        if (pendingJoinsByRoom[roomCode].has(ws.tempPlayerId)) {
+          pendingJoinsByRoom[roomCode].delete(ws.tempPlayerId);
+        }
+      }
     }
+    
+    // Periodic cleanup of stale connections
+    cleanStaleConnections();
   });
 });
 

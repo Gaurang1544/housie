@@ -1097,7 +1097,12 @@ function applyStateSync(state){
 
 function handlePlayerMessage(msg){
   if(msg.type==='error'){
-    toast(`Error: ${msg.message}`); showScreen('screen-lobby'); return;
+    toast(`Error: ${msg.message}`); 
+    // Return to lobby only if it's a critical error
+    if(msg.message.includes('Room not found') || msg.message.includes('already in this game')) {
+      showScreen('screen-lobby');
+    }
+    return;
   }
   if(msg.type==='join_denied'){
     toast('❌ Host denied your join request', 4000);
@@ -1105,6 +1110,13 @@ function handlePlayerMessage(msg){
       showScreen('screen-lobby');
       document.getElementById('join-code').value = '';
     }, 2000);
+    return;
+  }
+  if(msg.type==='player_disconnected'){
+    if(msg.state) gameState = msg.state;
+    if(msg.playerId !== myId) {
+      addPlayerLog(`👤 A player disconnected`);
+    }
     return;
   }
   if(msg.type==='state_sync'){
