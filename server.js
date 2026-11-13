@@ -47,6 +47,9 @@ const pendingJoins = {};
 // Track all client connections by playerId
 const clientsByPlayerId = new Map();
 
+// Track pending join requests with timeout
+const pendingJoinsByRoom = {}; // roomCode → Map(playerId → { playerId, name, ws, timestamp })
+
 function broadcast(roomCode, msg, excludeWs = null) {
   const room = rooms[roomCode];
   if (!room) return;
@@ -54,6 +57,15 @@ function broadcast(roomCode, msg, excludeWs = null) {
   room.clients.forEach(ws => {
     if (ws !== excludeWs && ws.readyState === 1) ws.send(data);
   });
+}
+
+// Clean up stale connections from clientsByPlayerId
+function cleanStaleConnections() {
+  for (const [playerId, ws] of clientsByPlayerId.entries()) {
+    if (ws.readyState !== 1) {
+      clientsByPlayerId.delete(playerId);
+    }
+  }
 }
 
 wss.on('connection', ws => {
