@@ -745,6 +745,25 @@ function handleHostMessage(msg) {
 }
 
 // ══════════════════════════════════════════
+//  START GAME (host)
+// ══════════════════════════════════════════
+function startGame() {
+  if (!gameState) { toast('No game state'); return; }
+  if (gameState.started) { toast('Game already started'); return; }
+
+  gameState.started = true;
+
+  // Hide the start card, show the call card
+  document.getElementById('start-game-card').style.display = 'none';
+  document.getElementById('host-call-card').style.display = 'block';
+
+  // Notify all players the game has started and push the updated state
+  send({ type: 'game_started', room: roomCode, state: gameState });
+  addHostLog('🎮 Game started!');
+  toast('Game started — start calling numbers!');
+}
+
+// ══════════════════════════════════════════
 //  PENDING CLAIMS (host)
 // ══════════════════════════════════════════
 let pendingClaims = [];  // { playerId, name, claimType, ticket, valid }
