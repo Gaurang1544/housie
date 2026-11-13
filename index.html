@@ -934,6 +934,7 @@ function handlePlayerMessage(msg){
     gameState=msg.state;
     // Disable any win types already claimed by anyone
     (gameState.wins||[]).forEach(w => disableClaimType(w.type));
+    if(gameState.started) gameStarted=true;
     if(gameState.started&&gameState.calledNumbers.length>0){
       revealPlayerGame(gameState.calledNumbers);
       document.getElementById('player-last-num').textContent=
