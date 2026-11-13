@@ -473,6 +473,7 @@
   <div class="card" id="claims-card" style="display:none;">
     <h2>Claim a Win</h2>
     <div class="claims">
+      <button class="btn btn-secondary" id="claim-early5" onclick="claimWin('early5')">⚡ First 5</button>
       <button class="btn btn-secondary" id="claim-top"    onclick="claimWin('top')">🔝 Top Line</button>
       <button class="btn btn-secondary" id="claim-middle" onclick="claimWin('middle')">➖ Middle Line</button>
       <button class="btn btn-secondary" id="claim-bottom" onclick="claimWin('bottom')">⬇️ Bottom Line</button>
@@ -545,6 +546,14 @@
 //  QUOTES
 // ══════════════════════════════════════════
 const QUOTES = {
+  early5: [
+    { q: "Fast as lightning, sharp as a tack!", a: "Anonymous", e: "⚡" },
+    { q: "The early bird catches the prize. Five down!", a: "Anonymous", e: "🦅" },
+    { q: "Off to a flying start! Five numbers in record time.", a: "Anonymous", e: "🎯" },
+    { q: "Speed and luck on your side. Fantastic First 5!", a: "Anonymous", e: "🔥" },
+    { q: "First on the board! Keep that winning momentum going.", a: "Anonymous", e: "🚀" },
+    { q: "Quickest on the draw. First 5 is yours!", a: "Anonymous", e: "🖐️" },
+  ],
   top: [
     { q: "The secret of getting ahead is getting started.", a: "Mark Twain", e: "🚀" },
     { q: "Top of the world, and you've only just begun!", a: "Anonymous", e: "🌟" },
@@ -580,6 +589,7 @@ const QUOTES = {
 };
 
 const WIN_THEMES = {
+  early5: { bg: 'linear-gradient(135deg,#0b2b26,#163832)', accent: '#2ecc71', label: 'First 5 ⚡' },
   top:    { bg: 'linear-gradient(135deg,#1a1a2e,#16213e)', accent: '#6c63ff', label: 'Top Line 🔝' },
   middle: { bg: 'linear-gradient(135deg,#0d2137,#1a3a5c)', accent: '#00d2ff', label: 'Middle Line ➖' },
   bottom: { bg: 'linear-gradient(135deg,#1f0533,#3d1162)', accent: '#ff6584', label: 'Bottom Line ⬇️' },
@@ -988,7 +998,7 @@ function renderPendingClaims() {
     const label = claimLabel(claim.claimType);
     const calledSet = new Set(gameState.calledNumbers);
     const rowMap = { top:0, middle:1, bottom:2 };
-    const winRows = claim.claimType === 'full' ? [0,1,2] : [rowMap[claim.claimType]];
+    const winRows = claim.claimType === 'full' ? [0,1,2] : (claim.claimType in rowMap ? [rowMap[claim.claimType]] : []);
 
     // Mini ticket preview
     let miniHtml = '<div class="pending-mini-ticket">';
@@ -999,7 +1009,7 @@ function renderPendingClaims() {
           miniHtml += '<div class="pmt-cell blank"></div>';
         } else {
           const isCalled   = calledSet.has(val);
-          const isWinRow   = winRows.includes(r);
+          const isWinRow   = winRows.includes(r) || (claim.claimType === 'early5' && isCalled);
           let cls = 'pmt-cell';
           if (isWinRow) cls += ' win-row-preview';
           if (isCalled)  cls += ' called';
@@ -1009,9 +1019,22 @@ function renderPendingClaims() {
     }
     miniHtml += '</div>';
 
-    const validNote = claim.valid
-      ? '<span style="color:var(--green);font-size:.75rem;">✔ All numbers called — valid</span>'
-      : '<span style="color:var(--accent2);font-size:.75rem;">✖ Some numbers not yet called — invalid</span>';
+    let validNote;
+    if (claim.claimType === 'early5') {
+      let calledCount = 0;
+      for (let r = 0; r < 3; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (claim.ticket[r][c] !== null && calledSet.has(claim.ticket[r][c])) calledCount++;
+        }
+      }
+      validNote = claim.valid
+        ? `<span style="color:var(--green);font-size:.75rem;">✔ ${calledCount} numbers called (≥5) — valid</span>`
+        : `<span style="color:var(--accent2);font-size:.75rem;">✖ Only ${calledCount}/5 numbers called — invalid</span>`;
+    } else {
+      validNote = claim.valid
+        ? '<span style="color:var(--green);font-size:.75rem;">✔ All numbers called — valid</span>'
+        : '<span style="color:var(--accent2);font-size:.75rem;">✖ Some numbers not yet called — invalid</span>';
+    }
 
     // Host cannot accept an invalid claim — button is disabled when numbers aren't all called
     const acceptDisabled = claim.valid ? '' : 'disabled style="opacity:0.35;cursor:not-allowed;" title="Not all numbers have been called yet"';
@@ -1082,6 +1105,16 @@ function validateClaim(ticketGrid, claimType, calledNumbers) {
     }
     return true;
   }
+  if(claimType==='early5'||claimType==='first5'){
+    let count = 0;
+    for(let r=0;r<3;r++){
+      for(let c=0;c<9;c++){
+        const val=ticketGrid[r][c];
+        if(val!==null && calledSet.has(val)) count++;
+      }
+    }
+    return count >= 5;
+  }
   if(claimType==='top')    return rowOk(0);
   if(claimType==='middle') return rowOk(1);
   if(claimType==='bottom') return rowOk(2);
@@ -1090,7 +1123,14 @@ function validateClaim(ticketGrid, claimType, calledNumbers) {
 }
 
 function claimLabel(type){
-  return {top:'Top Line',middle:'Middle Line',bottom:'Bottom Line',full:'Full House 🏆'}[type]||type;
+  return {
+    early5: 'First 5 ⚡',
+    first5: 'First 5 ⚡',
+    top: 'Top Line',
+    middle: 'Middle Line',
+    bottom: 'Bottom Line',
+    full: 'Full House 🏆'
+  }[type] || type;
 }
 
 function callNumber(){
@@ -1312,15 +1352,23 @@ function handlePlayerMessage(msg){
     const calledSet=new Set(gameState?gameState.calledNumbers:[]);
     const rowMap={top:0,middle:1,bottom:2};
     let missing=[];
-    if(msg.claimType!=='full'){
+    let hint='Try again';
+    if(msg.claimType==='early5'){
+      let calledCount=0;
+      for(let r=0;r<3;r++) for(let c=0;c<9;c++){
+        const v=ticket[r][c]; if(v!==null&&calledSet.has(v)) calledCount++;
+      }
+      hint = `Need 5 numbers called, ticket has ${calledCount}`;
+    } else if(msg.claimType!=='full'){
       const row=rowMap[msg.claimType];
       for(let c=0;c<9;c++){ const v=ticket[row][c]; if(v!==null&&!calledSet.has(v)) missing.push(v); }
+      if(missing.length>0) hint = `Still waiting for: ${missing.join(', ')}`;
     } else {
       for(let r=0;r<3;r++) for(let c=0;c<9;c++){
         const v=ticket[r][c]; if(v!==null&&!calledSet.has(v)) missing.push(v);
       }
+      if(missing.length>0) hint = `Still waiting for: ${missing.join(', ')}`;
     }
-    const hint=missing.length>0?`Still waiting for: ${missing.join(', ')}`:'Try again';
     toast(`❌ ${label} rejected. ${hint}`,4500);
     addPlayerLog(`❌ ${label} rejected — ${hint}`);
     return;
@@ -1392,6 +1440,18 @@ function toggleMark(r,c,cell,val){
 
 function highlightWinRow(claimType){
   const rowMap={top:0,middle:1,bottom:2};
+  const calledSet = new Set(gameState ? gameState.calledNumbers : []);
+  if(claimType==='early5'){
+    let count=0;
+    document.querySelectorAll('#player-ticket .ticket-cell.has-number').forEach(cell=>{
+      const val=parseInt(cell.textContent);
+      if(calledSet.has(val) && count < 5){
+        cell.classList.add('win-row'); cell.classList.remove('marked');
+        count++;
+      }
+    });
+    return;
+  }
   const rows=claimType==='full'?[0,1,2]:[rowMap[claimType]];
   document.querySelectorAll('#player-ticket .ticket-cell.has-number').forEach(cell=>{
     if(rows.includes(parseInt(cell.dataset.row))){
@@ -1407,7 +1467,7 @@ function disableClaimType(type){
   if(btn){ btn.classList.add('claimed'); btn.disabled=true; }
   // Full house win locks all remaining buttons too
   if(type==='full'){
-    ['top','middle','bottom'].forEach(t=>{
+    ['early5','top','middle','bottom'].forEach(t=>{
       claimedWins.add(t);
       const b=document.getElementById(`claim-${t}`); if(b){ b.classList.add('claimed'); b.disabled=true; }
     });
