@@ -1075,7 +1075,8 @@ function joinGame(){
 function applyStateSync(state){
   gameState=state;
   // Update status text to show they're in
-  document.getElementById('player-status-text').textContent='Waiting for host to start...';
+  const statusText = gameState.started ? '✅ Game in progress' : '✅ Joined! Waiting for host to start...';
+  document.getElementById('player-status-text').textContent=statusText;
   // Disable any win types already claimed by anyone
   (gameState.wins||[]).forEach(w => disableClaimType(w.type));
   if(gameState.started) gameStarted=true;
@@ -1098,8 +1099,18 @@ function handlePlayerMessage(msg){
     }, 2000);
     return;
   }
-  if(msg.type==='state_sync' || msg.type==='state_update'){
+  if(msg.type==='state_sync'){
     applyStateSync(msg.state);
+    toast('✅ Joined the game!');
+    return;
+  }
+  if(msg.type==='state_update'){
+    applyStateSync(msg.state);
+    return;
+  }
+  if(msg.type==='game_started'){
+    if(msg.state) applyStateSync(msg.state);
+    toast('🎮 Game started!');
     return;
   }
   if(msg.type==='number_called'){
