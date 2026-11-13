@@ -1133,6 +1133,15 @@ function handlePlayerMessage(msg){
     toast('🎮 Game started!');
     return;
   }
+  if(msg.type==='game_started'){
+    if(msg.state) gameState = msg.state;
+    gameStarted = true;
+    document.getElementById('player-status-text').textContent = 'Game in progress!';
+    document.getElementById('waiting-card').querySelector('p').textContent = '🎲 Game started! Waiting for the first number...';
+    toast('🎮 The game has started!', 3000);
+    addPlayerLog('🎮 Game started');
+    return;
+  }
   if(msg.type==='number_called'){
     if(msg.state) gameState=msg.state;
     revealPlayerGame(msg.calledNumbers);
