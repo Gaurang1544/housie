@@ -41,6 +41,9 @@ const wss = new WebSocketServer({ server });
 // rooms[roomCode] = { state: {...}, clients: Set<ws> }
 const rooms = {};
 
+// pendingJoins[playerId] = { ws, roomCode, name }
+const pendingJoins = {};
+
 function broadcast(roomCode, msg, excludeWs = null) {
   const room = rooms[roomCode];
   if (!room) return;
