@@ -527,6 +527,19 @@
 <!-- ══════════════ JOIN REQUEST POPUPS (host) ══════════════ -->
 <div class="join-popup-overlay" id="join-popup-overlay"></div>
 
+<!-- Real-time Web MQTT client (enables 100% serverless multiplayer on Netlify) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.3.5/mqtt.min.js"></script>
+<script>
+  if (typeof mqtt === 'undefined') {
+    document.write('<script src="https://cdn.jsdelivr.net/npm/mqtt@5.3.5/dist/mqtt.min.js"><\/script>');
+  }
+</script>
+<script>
+  if (typeof mqtt === 'undefined') {
+    document.write('<script src="https://unpkg.com/mqtt@5.3.5/dist/mqtt.min.js"><\/script>');
+  }
+</script>
+
 <script>
 // ══════════════════════════════════════════
 //  QUOTES
@@ -576,7 +589,6 @@ const WIN_THEMES = {
 // ══════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════
-let ws          = null;
 let role        = null;
 let roomCode    = null;
 let myName      = '';
@@ -584,7 +596,6 @@ let myId        = null;
 let ticket      = [];
 let markedCells = new Set();
 let claimedWins = new Set();
-let channel     = null;
 let autoTimer   = null;
 let gameStarted = false;
 let gameState   = null;
@@ -640,69 +651,154 @@ function generateTicket() {
 }
 
 // ══════════════════════════════════════════
-//  WEBSOCKET
+//  SERVERLESS REAL-TIME NETWORK (NETLIFY)
 // ══════════════════════════════════════════
-function connectWS(onOpen) {
-  // Priority order for WebSocket URL:
-  // 1. <meta name="ws-url"> injected by server.js (works on Railway)
-  // 2. Same host as the page (works when opening via node server locally)
-  // 3. If served from Netlify/GitHub Pages (no WS server) — show a clear error
+let netClient = null;
+let netConnected = false;
+let pendingSends = [];
 
-  const metaWs = document.querySelector('meta[name="ws-url"]');
-  let wsUrl;
+const BROKER_LIST = [
+  'wss://broker.hivemq.com:8884/mqtt',
+  'wss://broker.emqx.io:8084/mqtt'
+];
+let currentBrokerIdx = 0;
 
-  if (metaWs && metaWs.content) {
-    // Set by server.js — Railway public URL
-    wsUrl = metaWs.content;
-  } else {
-    // Fallback: try same host (works locally via node server.js)
-    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    wsUrl = `${proto}://${location.host}`;
-  }
-
-  // Netlify/GitHub Pages serve static files only — catch this early
-  const isStaticHost = /netlify\.app|github\.io|pages\.dev/.test(location.hostname);
-  if (isStaticHost && !metaWs) {
-    showStaticHostError();
+function connectNet(onReady) {
+  if (netClient && netConnected) {
+    if (onReady) onReady();
     return;
   }
 
-  ws = new WebSocket(wsUrl);
-  ws.onopen = onOpen;
-  ws.onmessage = e => {
-    let msg; try { msg = JSON.parse(e.data); } catch { return; }
-    role === 'host' ? handleHostMessage(msg) : handlePlayerMessage(msg);
-  };
-  ws.onclose = () => toast('Connection lost. Reload to reconnect.', 5000);
-  ws.onerror = () => {
-    toast('Could not connect to server.', 4000);
-    showStaticHostError();
-  };
+  if (typeof mqtt === 'undefined') {
+    toast('Connecting to network...');
+    setTimeout(() => connectNet(onReady), 400);
+    return;
+  }
+
+  const brokerUrl = BROKER_LIST[currentBrokerIdx];
+  const clientId = 'housie_' + (role || 'u') + '_' + uid();
+
+  try {
+    netClient = mqtt.connect(brokerUrl, {
+      clientId: clientId,
+      clean: true,
+      keepalive: 30,
+      reconnectPeriod: 2500,
+      connectTimeout: 7000
+    });
+
+    netClient.on('connect', () => {
+      console.log('Connected to real-time broker:', brokerUrl);
+      netConnected = true;
+      if (onReady) onReady();
+      while (pendingSends.length > 0) {
+        const item = pendingSends.shift();
+        send(item);
+      }
+    });
+
+    netClient.on('message', (topic, payload) => {
+      let msg;
+      try {
+        msg = JSON.parse(payload.toString());
+      } catch (e) {
+        return;
+      }
+      onNetMessage(topic, msg);
+    });
+
+    netClient.on('error', (err) => {
+      console.warn('Broker connection error:', err);
+      if (!netConnected && currentBrokerIdx < BROKER_LIST.length - 1) {
+        currentBrokerIdx++;
+        try { netClient.end(true); } catch(e){}
+        setTimeout(() => connectNet(onReady), 1000);
+      }
+    });
+
+    netClient.on('close', () => {
+      netConnected = false;
+    });
+
+    netClient.on('reconnect', () => {
+      console.log('Reconnecting to room network...');
+      if (roomCode) {
+        if (role === 'host') {
+          netClient.subscribe(`housie/v1/${roomCode}/host`);
+          netClient.subscribe(`housie/v1/${roomCode}/ping`);
+        } else if (role === 'player' && myId) {
+          netClient.subscribe(`housie/v1/${roomCode}/player/${myId}`);
+          netClient.subscribe(`housie/v1/${roomCode}/broadcast`);
+        }
+      }
+    });
+
+  } catch (err) {
+    console.error('Failed to initialize real-time client:', err);
+    toast('Network connection failed. Retrying...', 3000);
+  }
 }
 
-function showStaticHostError() {
-  // Replace lobby with a clear deployment error
-  document.getElementById('screen-lobby').innerHTML = `
-    <div class="card" style="text-align:center;padding:32px 20px;">
-      <div style="font-size:3rem;margin-bottom:12px;">⚠️</div>
-      <h2 style="color:var(--accent2);font-size:1.2rem;margin-bottom:12px;">Server not reachable</h2>
-      <p style="color:var(--muted);font-size:.88rem;line-height:1.6;margin-bottom:20px;">
-        This game needs a live Node.js server for real-time WebSocket communication.<br><br>
-        <strong style="color:var(--text);">To play:</strong>
-      </p>
-      <ol style="color:var(--muted);font-size:.85rem;text-align:left;line-height:2;padding-left:20px;margin-bottom:20px;">
-        <li>Deploy the server to <a href="https://railway.app" target="_blank" style="color:var(--accent);">Railway.app</a> (free)</li>
-        <li>Connect your GitHub repo <code style="color:var(--accent);">Gaurang1544/housie</code></li>
-        <li>Open the Railway-provided URL instead of this Netlify link</li>
-      </ol>
-      <p style="color:var(--muted);font-size:.8rem;">
-        Or run locally: <code style="color:var(--accent);">node server.js</code> then open <code style="color:var(--accent);">localhost:3000</code>
-      </p>
-    </div>
-  `;
+function onNetMessage(topic, msg) {
+  if (role === 'host') {
+    if (topic.endsWith('/ping')) {
+      if (msg.playerId && netClient) {
+        netClient.publish(`housie/v1/${roomCode}/player/${msg.playerId}`, JSON.stringify({
+          type: 'pong',
+          room: roomCode
+        }));
+      }
+      return;
+    }
+    if (msg.type === 'join_room') {
+      handleHostMessage({ type: 'join', playerId: msg.playerId, name: msg.name });
+      return;
+    }
+    handleHostMessage(msg);
+  } else if (role === 'player') {
+    handlePlayerMessage(msg);
+  }
 }
+
 function send(msg) {
-  if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  if (!netClient || !netConnected) {
+    pendingSends.push(msg);
+    return;
+  }
+
+  const payload = JSON.stringify(msg);
+
+  if (role === 'host') {
+    if (msg.type === 'join_approved') {
+      netClient.publish(`housie/v1/${roomCode}/player/${msg.playerId}`, JSON.stringify({
+        type: 'state_sync',
+        state: msg.state
+      }));
+      netClient.publish(`housie/v1/${roomCode}/broadcast`, JSON.stringify({
+        type: 'state_update',
+        state: msg.state
+      }));
+      return;
+    }
+    if (msg.type === 'join_denied') {
+      netClient.publish(`housie/v1/${roomCode}/player/${msg.playerId}`, JSON.stringify({
+        type: 'join_denied',
+        message: 'Host denied your join request'
+      }));
+      return;
+    }
+    if (msg.type === 'claim_pending') {
+      netClient.publish(`housie/v1/${roomCode}/player/${msg.playerId}`, payload);
+      return;
+    }
+    if (msg.type === 'claim_rejected') {
+      netClient.publish(`housie/v1/${roomCode}/player/${msg.playerId}`, payload);
+      return;
+    }
+    netClient.publish(`housie/v1/${roomCode}/broadcast`, payload);
+  } else {
+    netClient.publish(`housie/v1/${roomCode}/host`, payload);
+  }
 }
 
 // ══════════════════════════════════════════
@@ -712,16 +808,24 @@ let pendingJoinRequests = []; // { playerId, name, timestamp }
 
 function hostGame() {
   myName = document.getElementById('player-name').value.trim() || 'Host';
-  myId = uid(); roomCode = genCode();
+  myId = uid(); 
+  roomCode = genCode();
   const numbers = Array.from({length:90},(_,i)=>i+1);
   for(let i=89;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [numbers[i],numbers[j]]=[numbers[j],numbers[i]]; }
   gameState = { room:roomCode, host:{id:myId,name:myName},
     players:{}, calledNumbers:[], remaining:numbers, wins:[], started:false, ended:false };
   role='host';
-  connectWS(()=>{ send({ type:'create_room', code:roomCode, state:gameState }); });
+
   showScreen('screen-host');
   document.getElementById('host-room-code').textContent = roomCode;
+  document.getElementById('share-hint').textContent = `Share code ${roomCode} with players anywhere on ${location.host || 'this site'}`;
   renderHostBoard([]); renderPlayersList(gameState.players); updateRemaining(90);
+
+  connectNet(() => {
+    netClient.subscribe(`housie/v1/${roomCode}/host`);
+    netClient.subscribe(`housie/v1/${roomCode}/ping`);
+    toast('Room ' + roomCode + ' created! Share the code.');
+  });
 }
 
 function handleHostMessage(msg) {
@@ -1068,19 +1172,47 @@ function endGame(){
 // ══════════════════════════════════════════
 //  PLAYER
 // ══════════════════════════════════════════
+let joinCheckTimer = null;
+
 function joinGame(){
   myName=document.getElementById('player-name').value.trim()||'Player';
   const code=document.getElementById('join-code').value.trim();
   if(code.length!==6){ toast('Enter a valid 6-digit code'); return; }
   roomCode=code; myId=uid(); role='player'; ticket=generateTicket();
-  connectWS(()=>{ send({type:'join_room',code:roomCode,playerId:myId,name:myName}); });
+
   showScreen('screen-player');
   document.getElementById('player-room-label').textContent=`Room: ${roomCode}`;
-  document.getElementById('player-status-text').textContent='⏳ Waiting for host approval...';
+  document.getElementById('player-status-text').textContent='⏳ Connecting to room...';
   renderPlayerBoard([]);
+
+  connectNet(() => {
+    // Subscribe to private topic and room broadcast
+    netClient.subscribe(`housie/v1/${roomCode}/player/${myId}`);
+    netClient.subscribe(`housie/v1/${roomCode}/broadcast`);
+
+    // Ping host to check if room is active
+    netClient.publish(`housie/v1/${roomCode}/ping`, JSON.stringify({ type: 'ping', playerId: myId }));
+
+    // Send join request
+    send({ type: 'join_room', code: roomCode, playerId: myId, name: myName });
+
+    document.getElementById('player-status-text').textContent='⏳ Waiting for host approval...';
+
+    if (joinCheckTimer) clearTimeout(joinCheckTimer);
+    joinCheckTimer = setTimeout(() => {
+      if (!gameState) {
+        toast('⚠️ Host not responding. Is room ' + roomCode + ' active?', 4500);
+        document.getElementById('player-status-text').textContent = '⚠️ Host not responding. Check room code.';
+      }
+    }, 15000);
+  });
 }
 
 function applyStateSync(state){
+  if (joinCheckTimer) {
+    clearTimeout(joinCheckTimer);
+    joinCheckTimer = null;
+  }
   gameState=state;
   // Update status text to show they're in
   const statusText = gameState.started ? '✅ Game in progress' : '✅ Joined! Waiting for host to start...';
@@ -1096,6 +1228,10 @@ function applyStateSync(state){
 }
 
 function handlePlayerMessage(msg){
+  if(msg.type==='pong'){
+    document.getElementById('player-status-text').textContent='⏳ Host found! Awaiting approval...';
+    return;
+  }
   if(msg.type==='error'){
     toast(`Error: ${msg.message}`); 
     // Return to lobby only if it's a critical error
@@ -1130,14 +1266,10 @@ function handlePlayerMessage(msg){
   }
   if(msg.type==='game_started'){
     if(msg.state) applyStateSync(msg.state);
-    toast('🎮 Game started!');
-    return;
-  }
-  if(msg.type==='game_started'){
-    if(msg.state) gameState = msg.state;
     gameStarted = true;
-    document.getElementById('player-status-text').textContent = 'Game in progress!';
-    document.getElementById('waiting-card').querySelector('p').textContent = '🎲 Game started! Waiting for the first number...';
+    document.getElementById('player-status-text').textContent = '✅ Game in progress!';
+    const waitP = document.getElementById('waiting-card').querySelector('p');
+    if (waitP) waitP.textContent = '🎲 Game started! Waiting for the first number...';
     toast('🎮 The game has started!', 3000);
     addPlayerLog('🎮 Game started');
     return;
