@@ -44,6 +44,9 @@ const rooms = {};
 // pendingJoins[playerId] = { ws, roomCode, name }
 const pendingJoins = {};
 
+// Track all client connections by playerId
+const clientsByPlayerId = new Map();
+
 function broadcast(roomCode, msg, excludeWs = null) {
   const room = rooms[roomCode];
   if (!room) return;
@@ -79,13 +82,15 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
         return;
       }
-      // Don't add to room yet - wait for host approval
-      // Store the websocket temporarily
+      // Store the player's websocket for later approval
+      const playerId = msg.playerId;
+      clientsByPlayerId.set(playerId, ws);
       ws.tempRoomCode = code;
-      ws.tempPlayerId = msg.playerId;
+      ws.tempPlayerId = playerId;
+      
       // Forward join request to host only
-      broadcast(code, { type: 'join', playerId: msg.playerId, name: msg.name });
-      console.log(`${msg.name} requested to join room ${code} - awaiting host approval`);
+      broadcast(code, { type: 'join', playerId: playerId, name: msg.name });
+      console.log(`${msg.name} (${playerId}) requested to join room ${code} - awaiting host approval`);
       return;
     }
 
