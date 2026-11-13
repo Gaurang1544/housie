@@ -926,20 +926,24 @@ function joinGame(){
   renderPlayerBoard([]);
 }
 
+function applyStateSync(state){
+  gameState=state;
+  // Disable any win types already claimed by anyone
+  (gameState.wins||[]).forEach(w => disableClaimType(w.type));
+  if(gameState.started) gameStarted=true;
+  if(gameState.started&&gameState.calledNumbers.length>0){
+    revealPlayerGame(gameState.calledNumbers);
+    document.getElementById('player-last-num').textContent=
+      gameState.calledNumbers[gameState.calledNumbers.length-1];
+  }
+}
+
 function handlePlayerMessage(msg){
   if(msg.type==='error'){
     toast(`Error: ${msg.message}`); showScreen('screen-lobby'); return;
   }
-  if(msg.type==='state_sync'){
-    gameState=msg.state;
-    // Disable any win types already claimed by anyone
-    (gameState.wins||[]).forEach(w => disableClaimType(w.type));
-    if(gameState.started) gameStarted=true;
-    if(gameState.started&&gameState.calledNumbers.length>0){
-      revealPlayerGame(gameState.calledNumbers);
-      document.getElementById('player-last-num').textContent=
-        gameState.calledNumbers[gameState.calledNumbers.length-1];
-    }
+  if(msg.type==='state_sync' || msg.type==='state_update'){
+    applyStateSync(msg.state);
     return;
   }
   if(msg.type==='number_called'){
