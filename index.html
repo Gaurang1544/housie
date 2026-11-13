@@ -1073,6 +1073,8 @@ function joinGame(){
 
 function applyStateSync(state){
   gameState=state;
+  // Update status text to show they're in
+  document.getElementById('player-status-text').textContent='Waiting for host to start...';
   // Disable any win types already claimed by anyone
   (gameState.wins||[]).forEach(w => disableClaimType(w.type));
   if(gameState.started) gameStarted=true;
