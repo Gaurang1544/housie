@@ -93,12 +93,9 @@ wss.on('connection', ws => {
     if (type === 'join_approved') {
       const code = msg.room;
       const playerId = msg.playerId;
-      // Find the waiting player websocket
-      rooms[code].clients.forEach(client => {
-        // Check if this is the approved player waiting in temp state
-        // Or find them by playerId if they sent other messages
-        const isApprovedPlayer = client.tempPlayerId === playerId;
-        if (isApprovedPlayer && !client.roomCode) {
+      // Find the waiting player websocket across all connections
+      wss.clients.forEach(client => {
+        if (client.tempPlayerId === playerId && client.readyState === 1) {
           // Now officially add them to the room
           client.roomCode = code;
           rooms[code].clients.add(client);
