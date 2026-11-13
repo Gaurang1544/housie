@@ -587,14 +587,33 @@ function generateTicket() {
 }
 
 // ══════════════════════════════════════════
-//  WEBSOCKET — connects to same host in dev,
-//  or VITE_WS_URL / window.WS_URL on prod
+//  WEBSOCKET
 // ══════════════════════════════════════════
 function connectWS(onOpen) {
-  // Railway injects the public URL via a <meta> tag written by server.js
+  // Priority order for WebSocket URL:
+  // 1. <meta name="ws-url"> injected by server.js (works on Railway)
+  // 2. Same host as the page (works when opening via node server locally)
+  // 3. If served from Netlify/GitHub Pages (no WS server) — show a clear error
+
   const metaWs = document.querySelector('meta[name="ws-url"]');
-  const wsUrl  = metaWs ? metaWs.content
-    : `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}`;
+  let wsUrl;
+
+  if (metaWs && metaWs.content) {
+    // Set by server.js — Railway public URL
+    wsUrl = metaWs.content;
+  } else {
+    // Fallback: try same host (works locally via node server.js)
+    const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+    wsUrl = `${proto}://${location.host}`;
+  }
+
+  // Netlify/GitHub Pages serve static files only — catch this early
+  const isStaticHost = /netlify\.app|github\.io|pages\.dev/.test(location.hostname);
+  if (isStaticHost && !metaWs) {
+    showStaticHostError();
+    return;
+  }
+
   ws = new WebSocket(wsUrl);
   ws.onopen = onOpen;
   ws.onmessage = e => {
@@ -602,7 +621,32 @@ function connectWS(onOpen) {
     role === 'host' ? handleHostMessage(msg) : handlePlayerMessage(msg);
   };
   ws.onclose = () => toast('Connection lost. Reload to reconnect.', 5000);
-  ws.onerror = () => toast('WebSocket error.', 4000);
+  ws.onerror = () => {
+    toast('Could not connect to server.', 4000);
+    showStaticHostError();
+  };
+}
+
+function showStaticHostError() {
+  // Replace lobby with a clear deployment error
+  document.getElementById('screen-lobby').innerHTML = `
+    <div class="card" style="text-align:center;padding:32px 20px;">
+      <div style="font-size:3rem;margin-bottom:12px;">⚠️</div>
+      <h2 style="color:var(--accent2);font-size:1.2rem;margin-bottom:12px;">Server not reachable</h2>
+      <p style="color:var(--muted);font-size:.88rem;line-height:1.6;margin-bottom:20px;">
+        This game needs a live Node.js server for real-time WebSocket communication.<br><br>
+        <strong style="color:var(--text);">To play:</strong>
+      </p>
+      <ol style="color:var(--muted);font-size:.85rem;text-align:left;line-height:2;padding-left:20px;margin-bottom:20px;">
+        <li>Deploy the server to <a href="https://railway.app" target="_blank" style="color:var(--accent);">Railway.app</a> (free)</li>
+        <li>Connect your GitHub repo <code style="color:var(--accent);">Gaurang1544/housie</code></li>
+        <li>Open the Railway-provided URL instead of this Netlify link</li>
+      </ol>
+      <p style="color:var(--muted);font-size:.8rem;">
+        Or run locally: <code style="color:var(--accent);">node server.js</code> then open <code style="color:var(--accent);">localhost:3000</code>
+      </p>
+    </div>
+  `;
 }
 function send(msg) {
   if(ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
