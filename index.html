@@ -720,7 +720,7 @@ function hostGame() {
   connectWS(()=>{ send({ type:'create_room', code:roomCode, state:gameState }); });
   showScreen('screen-host');
   document.getElementById('host-room-code').textContent = roomCode;
-  renderHostBoard([]); renderPlayersList({}); updateRemaining(90);
+  renderHostBoard([]); renderPlayersList(gameState.players); updateRemaining(90);
 }
 
 function handleHostMessage(msg) {
