@@ -17,18 +17,16 @@ const server = http.createServer((req, res) => {
 
     // Inject <meta name="ws-url"> so the client knows where to connect.
     // On Railway this will be wss://housie-production.up.railway.app
-    // Locally it falls back to ws://localhost:PORT
-    let wsUrl;
+    // Locally the client uses its own location.host (see connectWS in index.html),
+    // so we only inject the meta tag when a PUBLIC_DOMAIN is configured.
+    let injected = html;
     if (PUBLIC_DOMAIN) {
-      wsUrl = `wss://${PUBLIC_DOMAIN}`;
-    } else {
-      wsUrl = `ws://localhost:${PORT}`;
+      const wsUrl = `wss://${PUBLIC_DOMAIN}`;
+      injected = html.replace(
+        '<meta charset="UTF-8" />',
+        `<meta charset="UTF-8" />\n  <meta name="ws-url" content="${wsUrl}" />`
+      );
     }
-
-    const injected = html.replace(
-      '<meta charset="UTF-8" />',
-      `<meta charset="UTF-8" />\n  <meta name="ws-url" content="${wsUrl}" />`
-    );
 
     res.writeHead(200, { 'Content-Type': 'text/html' });
     res.end(injected);
