@@ -94,15 +94,66 @@ wss.on('connection', ws => {
         ws.send(JSON.stringify({ type: 'error', message: 'Room not found' }));
         return;
       }
-      // Store the player's websocket for later approval
+      
       const playerId = msg.playerId;
+      const playerName = msg.name;
+      
+      // Initialize pending joins map for this room if needed
+      if (!pendingJoinsByRoom[code]) {
+        pendingJoinsByRoom[code] = new Map();
+      }
+      
+      // Check if this player is already pending or already in the game
+      const pendingMap = pendingJoinsByRoom[code];
+      const gameState = rooms[code].state;
+      
+      if (gameState.players && gameState.players[playerId]) {
+        // Player already in game — reject duplicate join
+        ws.send(JSON.stringify({ type: 'error', message: 'You are already in this game' }));
+        return;
+      }
+      
+      if (pendingMap.has(playerId)) {
+        // Clean up old pending entry if it has a dead connection
+        const oldPending = pendingMap.get(playerId);
+        if (oldPending.ws && oldPending.ws.readyState === 1) {
+          // Old connection still alive — reject new join attempt
+          ws.send(JSON.stringify({ type: 'error', message: 'Join request already pending' }));
+          return;
+        }
+        // Old connection dead — replace it
+        pendingMap.delete(playerId);
+      }
+      
+      // Store the player's websocket and pending request
+      const timestamp = Date.now();
+      pendingMap.set(playerId, { playerId, name: playerName, ws, timestamp });
+      
+      // Store in clientsByPlayerId for quick lookup
       clientsByPlayerId.set(playerId, ws);
       ws.tempRoomCode = code;
       ws.tempPlayerId = playerId;
       
       // Forward join request to host only
-      broadcast(code, { type: 'join', playerId: playerId, name: msg.name });
-      console.log(`${msg.name} (${playerId}) requested to join room ${code} - awaiting host approval`);
+      const host = [...rooms[code].clients].find(c => c.roomCode === code && c === rooms[code].clients.values().next().value);
+      broadcast(code, { type: 'join', playerId: playerId, name: playerName });
+      console.log(`${playerName} (${playerId}) requested to join room ${code} - awaiting host approval`);
+      
+      // Auto-expire this pending request after 60 seconds
+      setTimeout(() => {
+        if (pendingMap.has(playerId)) {
+          const pending = pendingMap.get(playerId);
+          // Only expire if it's the same websocket (hasn't been replaced)
+          if (pending.ws === ws) {
+            pendingMap.delete(playerId);
+            if (ws.readyState === 1) {
+              ws.send(JSON.stringify({ type: 'error', message: 'Join request timed out. Host did not respond.' }));
+            }
+            console.log(`Join request from ${playerId} expired (room ${code})`);
+          }
+        }
+      }, 60000);
+      
       return;
     }
 
@@ -111,28 +162,45 @@ wss.on('connection', ws => {
       const code = msg.room;
       const playerId = msg.playerId;
       
+      // Clean up stale connections first
+      cleanStaleConnections();
+      
       // Find the waiting player websocket
       const playerWs = clientsByPlayerId.get(playerId);
+      const pendingMap = pendingJoinsByRoom[code];
       
-      if (playerWs && playerWs.readyState === 1) {
-        // Now officially add them to the room
-        playerWs.roomCode = code;
-        rooms[code].clients.add(playerWs);
-        
-        // Send state sync to the newly approved player
-        playerWs.send(JSON.stringify({ type: 'state_sync', state: msg.state }));
-        console.log(`Player ${playerId} approved and added to room ${code}`);
-        
-        // Broadcast to all OTHER players that someone joined (excluding the newly joined player)
-        broadcast(code, { type: 'state_update', state: msg.state }, playerWs);
-      } else {
-        console.log(`Could not find websocket for player ${playerId}`);
+      if (!playerWs || playerWs.readyState !== 1) {
+        console.log(`Cannot approve: player ${playerId} WebSocket not available or dead`);
+        return;
       }
+      
+      if (!pendingMap || !pendingMap.has(playerId)) {
+        console.log(`Cannot approve: player ${playerId} not in pending joins for room ${code}`);
+        return;
+      }
+      
+      // Remove from pending
+      pendingMap.delete(playerId);
+      
+      // Now officially add them to the room
+      playerWs.roomCode = code;
+      playerWs.tempRoomCode = null;
+      playerWs.tempPlayerId = null;
+      rooms[code].clients.add(playerWs);
+      
+      // Send state sync to the newly approved player
+      playerWs.send(JSON.stringify({ type: 'state_sync', state: msg.state }));
+      console.log(`Player ${playerId} approved and added to room ${code}`);
+      
+      // Broadcast to all OTHER players that someone joined (excluding the newly joined player)
+      broadcast(code, { type: 'state_update', state: msg.state }, playerWs);
+      
       return;
     }
 
     // ── host denies join ──
     if (type === 'join_denied') {
+      const code = msg.room;
       const playerId = msg.playerId;
       
       // Find and notify the denied player
@@ -141,10 +209,17 @@ wss.on('connection', ws => {
       if (playerWs && playerWs.readyState === 1) {
         playerWs.send(JSON.stringify({ type: 'join_denied', message: 'Host denied your join request' }));
         console.log(`Player ${playerId} denied by host`);
-        
-        // Clean up the stored reference
-        clientsByPlayerId.delete(playerId);
       }
+      
+      // Clean up the pending join request
+      const pendingMap = pendingJoinsByRoom[code];
+      if (pendingMap && pendingMap.has(playerId)) {
+        pendingMap.delete(playerId);
+      }
+      
+      // Clean up client reference
+      clientsByPlayerId.delete(playerId);
+      
       return;
     }
 
